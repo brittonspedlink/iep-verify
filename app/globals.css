@@ -31,3 +31,35 @@ body {
   background: rgba(59, 130, 246, 0.28);
   color: #0f172a;
 }
+@media print {
+  body {
+    background: white !important;
+  }
+
+  body > div {
+    display: none !important;
+  }
+
+  body > div:has(#audit-results) {
+    display: block !important;
+  }
+
+  #audit-results {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  #audit-results button {
+    display: none !important;
+  }
+
+  @page {
+    margin: 0.5in;
+  }
+}
