@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
+import OpenAI from "openai";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 
@@ -51,7 +52,77 @@ async function extractStoredEvidenceFile(
 
   throw new Error(`Unsupported file type for ${file.name}.`);
 }
+async function classifyCombinedSurveyEvidence(rawText: string) {
+  const apiKey = process.env.OPENAI_API_KEY;
 
+  if (!apiKey || !rawText.trim()) {
+    return {
+      teacherSurvey: "",
+      parentSurvey: "",
+      studentSurvey: "",
+    };
+  }
+
+  const client = new OpenAI({ apiKey });
+
+  const response = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "system",
+        content: `Classify combined special education survey evidence into teacher, parent, and student survey evidence.
+
+Use only the text provided.
+
+Preserve the original questions, responses, observations, and wording as closely as possible.
+
+Do not invent information.
+Do not summarize away meaningful details.
+Do not place the same evidence into multiple categories unless the source clearly applies to more than one respondent.
+If a category is not present, return an empty string.
+
+Return valid JSON only with this exact shape:
+{
+  "teacherSurvey": "string",
+  "parentSurvey": "string",
+  "studentSurvey": "string"
+}`,
+      },
+      {
+        role: "user",
+        content: rawText,
+      },
+    ],
+  });
+
+  const responseText = response.output_text?.trim() ?? "";
+
+  if (!responseText) {
+    return {
+      teacherSurvey: "",
+      parentSurvey: "",
+      studentSurvey: "",
+    };
+  }
+
+  const cleaned = responseText
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  const parsed = JSON.parse(cleaned) as {
+    teacherSurvey?: string;
+    parentSurvey?: string;
+    studentSurvey?: string;
+  };
+
+  return {
+    teacherSurvey: parsed.teacherSurvey?.trim() ?? "",
+    parentSurvey: parsed.parentSurvey?.trim() ?? "",
+    studentSurvey: parsed.studentSurvey?.trim() ?? "",
+  };
+}
 function detectIepSections(rawText: string): DetectedSection[] {
   const sectionDefinitions = [
     {
@@ -257,7 +328,14 @@ for (const file of combinedSurveyFiles) {
 const combinedSurveyEvidence = extractedCombinedSurveyParts
   .join("\n\n")
   .trim();
-
+const classifiedCombinedSurvey =
+  combinedSurveyEvidence.length > 0
+    ? await classifyCombinedSurveyEvidence(combinedSurveyEvidence)
+    : {
+        teacherSurvey: "",
+        parentSurvey: "",
+        studentSurvey: "",
+      };
     if (!primaryFile?.path) {
       return NextResponse.json(
         { error: "No primary IEP document is attached to this audit." },
@@ -302,6 +380,33 @@ const detectedSections = detectIepSections(rawText);
 
     const updatedSourceInput = {
       ...sourceInput,
+      evidenceText: {
+  ...(sourceInput.evidenceText ?? {}),
+
+  teacherSurvey: [
+    sourceInput.evidenceText?.teacherSurvey ?? "",
+    classifiedCombinedSurvey.teacherSurvey,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join("\n\n")
+    .trim(),
+
+  parentSurvey: [
+    sourceInput.evidenceText?.parentSurvey ?? "",
+    classifiedCombinedSurvey.parentSurvey,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join("\n\n")
+    .trim(),
+
+  studentSurvey: [
+    sourceInput.evidenceText?.studentSurvey ?? "",
+    classifiedCombinedSurvey.studentSurvey,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join("\n\n")
+    .trim(),
+},
       extracted: {
         ...(sourceInput.extracted ?? {}),
 primaryIep: {

@@ -410,12 +410,14 @@ const hasSurveyEvidence =
   evidenceFiles.parentSurvey.length > 0 ||
   evidenceText.parentSurvey.trim().length > 0 ||
   evidenceFiles.studentSurvey.length > 0 ||
-  evidenceText.studentSurvey.trim().length > 0;
+  evidenceText.studentSurvey.trim().length > 0 ||
+  evidenceFiles.combinedSurvey.length > 0 ||
+  evidenceText.combinedSurvey.trim().length > 0;
 
   if (!hasSurveyEvidence) {
     setAccordionState((current) => ({
       ...current,
-      teacherSurvey: true,
+      combinedSurvey: true,
     }));
 
     setErrorMessage(
@@ -483,6 +485,7 @@ files: {
   teacherSurvey: [],
   parentSurvey: [],
   studentSurvey: [],
+  combinedSurvey: [],
   caseManagerNotes: [],
   fieEvaluation: [],
   progressData: [],
@@ -604,6 +607,7 @@ const evidenceKeys: EvidenceKey[] = [
   "teacherSurvey",
   "parentSurvey",
   "studentSurvey",
+  "combinedSurvey",
   "caseManagerNotes",
   "fieEvaluation",
   "progressData",
@@ -625,6 +629,7 @@ evidenceText: {
   teacherSurvey: evidenceText.teacherSurvey,
   parentSurvey: evidenceText.parentSurvey,
   studentSurvey: evidenceText.studentSurvey,
+  combinedSurvey: evidenceText.combinedSurvey,
   caseManagerNotes: evidenceText.caseManagerNotes,
   fieEvaluation: evidenceText.fieEvaluation,
   progressData: evidenceText.progressData,
@@ -635,6 +640,7 @@ files: {
   teacherSurvey: storedEvidenceFiles.teacherSurvey,
   parentSurvey: storedEvidenceFiles.parentSurvey,
   studentSurvey: storedEvidenceFiles.studentSurvey,
+  combinedSurvey: storedEvidenceFiles.combinedSurvey,
   caseManagerNotes: storedEvidenceFiles.caseManagerNotes,
   fieEvaluation: storedEvidenceFiles.fieEvaluation,
   progressData: storedEvidenceFiles.progressData,
