@@ -206,8 +206,6 @@ function validateFile(file: File) {
 export default function UploadIEPPage() {
   const router = useRouter();
 
-  const primaryInputRef = useRef<HTMLInputElement | null>(null);
-
   const evidenceInputRefs = useRef<
     Partial<Record<EvidenceKey, HTMLInputElement | null>>
   >({});
@@ -217,7 +215,6 @@ export default function UploadIEPPage() {
   const [gradeLevel, setGradeLevel] = useState("");
   const [auditType, setAuditType] = useState(auditTypes[0]);
 
-  const [primaryFile, setPrimaryFile] = useState<SelectedFile | null>(null);
   const [primaryText, setPrimaryText] = useState("");
 
   const [evidenceFiles, setEvidenceFiles] =
@@ -231,8 +228,6 @@ export default function UploadIEPPage() {
 
   const [accordionState, setAccordionState] =
     useState<AccordionState>(initialAccordionState);
-
-  const [primaryDragging, setPrimaryDragging] = useState(false);
 
   const [expectedTeacherSurveyCount, setExpectedTeacherSurveyCount] =
     useState(0);
@@ -256,17 +251,6 @@ export default function UploadIEPPage() {
     }));
   }
 
-  function addPrimaryFile(file: File) {
-    const validationError = validateFile(file);
-
-    if (validationError) {
-      setErrorMessage(validationError);
-      return;
-    }
-
-    setPrimaryFile(createSelectedFile(file));
-    clearMessages();
-  }
 
   function addEvidenceFiles(key: EvidenceKey, files: File[]) {
     const selectedFiles: SelectedFile[] = [];
@@ -290,16 +274,6 @@ export default function UploadIEPPage() {
     clearMessages();
   }
 
-  function handlePrimaryInput(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (file) {
-      addPrimaryFile(file);
-    }
-
-    event.target.value = "";
-  }
-
   function handleEvidenceInput(
     key: EvidenceKey,
     event: ChangeEvent<HTMLInputElement>
@@ -311,17 +285,6 @@ export default function UploadIEPPage() {
     }
 
     event.target.value = "";
-  }
-
-  function handlePrimaryDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setPrimaryDragging(false);
-
-    const file = event.dataTransfer.files?.[0];
-
-    if (file) {
-      addPrimaryFile(file);
-    }
   }
 
   function handleEvidenceDrop(
@@ -400,8 +363,8 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     return;
   }
 
-if (!primaryFile && !primaryText.trim()) {
-  setErrorMessage("Upload or paste the primary IEP document.");
+if (!primaryText.trim()) {
+  setErrorMessage("Paste the primary IEP document.");
   return;
 }
 
@@ -470,18 +433,18 @@ const hasSurveyEvidence =
       );
     }
 
-    const initialSourceInput = {
-      primaryText: primaryText.trim(),
-evidenceText: {
-  teacherSurvey: evidenceText.teacherSurvey,
-  parentSurvey: evidenceText.parentSurvey,
-  studentSurvey: evidenceText.studentSurvey,
-  combinedSurvey: evidenceText.combinedSurvey,
-  caseManagerNotes: evidenceText.caseManagerNotes,
-  fieEvaluation: evidenceText.fieEvaluation,
-  progressData: evidenceText.progressData,
-},
+const initialSourceInput = {
+  primaryText: primaryText.trim(),
 
+  evidenceText: {
+    teacherSurvey: evidenceText.teacherSurvey,
+    parentSurvey: evidenceText.parentSurvey,
+    studentSurvey: evidenceText.studentSurvey,
+    combinedSurvey: evidenceText.combinedSurvey,
+    caseManagerNotes: evidenceText.caseManagerNotes,
+    fieEvaluation: evidenceText.fieEvaluation,
+    progressData: evidenceText.progressData,
+  },
 files: {
   primary: null,
   teacherSurvey: [],
@@ -587,14 +550,6 @@ if (auditError) {
       };
     }
 
-let primaryDocument: StoredFileMetadata | null = null;
-
-if (primaryFile) {
-  primaryDocument = await uploadFile(
-    primaryFile.file,
-    "primary"
-  );
-}
 
 const storedEvidenceFiles: Record<
   EvidenceKey,
@@ -630,39 +585,40 @@ const evidenceKeys: EvidenceKey[] = [
       }
     }
 
-    const finalSourceInput = {
-      primaryText: primaryText.trim(),
-evidenceText: {
-  teacherSurvey: evidenceText.teacherSurvey,
-  parentSurvey: evidenceText.parentSurvey,
-  studentSurvey: evidenceText.studentSurvey,
-  combinedSurvey: evidenceText.combinedSurvey,
-  caseManagerNotes: evidenceText.caseManagerNotes,
-  fieEvaluation: evidenceText.fieEvaluation,
-  progressData: evidenceText.progressData,
-},
+const finalSourceInput = {
+  primaryText: primaryText.trim(),
 
-files: {
-  primary: primaryDocument,
-  teacherSurvey: storedEvidenceFiles.teacherSurvey,
-  parentSurvey: storedEvidenceFiles.parentSurvey,
-  studentSurvey: storedEvidenceFiles.studentSurvey,
-  combinedSurvey: storedEvidenceFiles.combinedSurvey,
-  caseManagerNotes: storedEvidenceFiles.caseManagerNotes,
-  fieEvaluation: storedEvidenceFiles.fieEvaluation,
-  progressData: storedEvidenceFiles.progressData,
-},
+  evidenceText: {
+    teacherSurvey: evidenceText.teacherSurvey,
+    parentSurvey: evidenceText.parentSurvey,
+    studentSurvey: evidenceText.studentSurvey,
+    combinedSurvey: evidenceText.combinedSurvey,
+    caseManagerNotes: evidenceText.caseManagerNotes,
+    fieEvaluation: evidenceText.fieEvaluation,
+    progressData: evidenceText.progressData,
+  },
 
-      metadata: {
-        auditName: auditName.trim(),
-        studentIdentifier: studentIdentifier.trim(),
-        gradeLevel: gradeLevel.trim() || null,
-        auditType,
-      },
+  files: {
+    primary: null,
+    teacherSurvey: storedEvidenceFiles.teacherSurvey,
+    parentSurvey: storedEvidenceFiles.parentSurvey,
+    studentSurvey: storedEvidenceFiles.studentSurvey,
+    combinedSurvey: storedEvidenceFiles.combinedSurvey,
+    caseManagerNotes: storedEvidenceFiles.caseManagerNotes,
+    fieEvaluation: storedEvidenceFiles.fieEvaluation,
+    progressData: storedEvidenceFiles.progressData,
+  },
 
-      expectedTeacherSurveyCount,
-      completedTeacherSurveyCount,
-    };
+  metadata: {
+    auditName: auditName.trim(),
+    studentIdentifier: studentIdentifier.trim(),
+    gradeLevel: gradeLevel.trim() || null,
+    auditType,
+  },
+
+  expectedTeacherSurveyCount,
+  completedTeacherSurveyCount,
+};
 
     const { error: updateError } = await supabase
       .from("audits")
@@ -851,140 +807,47 @@ files: {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-950">
-                Primary IEP Document
-              </h2>
+<section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h2 className="text-xl font-semibold text-slate-950">
+        Primary IEP Document
+      </h2>
 
-              <p className="mt-1 text-sm leading-6 text-slate-600">
-                Upload the complete IEP draft that IEP Verify should review.
-              </p>
-            </div>
+      <p className="mt-1 text-sm leading-6 text-slate-600">
+        Paste the complete IEP draft that IEP Verify should review.
+      </p>
+    </div>
 
-            <span className="inline-flex w-fit rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
-              Required
-            </span>
-          </div>
+    <span className="inline-flex w-fit rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+      Required
+    </span>
+  </div>
 
-          <input
-            ref={primaryInputRef}
-            type="file"
-            accept=".pdf,.docx"
-            onChange={handlePrimaryInput}
-            className="hidden"
-          />
+  <div className="mt-6">
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        Paste IEP text
+      </span>
 
-          {primaryFile ? (
-            <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 items-center gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-emerald-700 shadow-sm">
-                  ✓
-                </div>
+      <textarea
+        value={primaryText}
+        onChange={(event) => {
+          setPrimaryText(event.target.value);
+          clearMessages();
+        }}
+        placeholder="Paste the complete IEP draft here. Include the PLAAFP, vision, annual goals, accommodations, services, FIE or evaluation information, recommended TEKS, and any other relevant IEP sections."
+        className="mt-3 h-96 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-4 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+      />
 
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    {primaryFile.file.name}
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    {formatFileSize(primaryFile.file.size)} · Ready to process
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => primaryInputRef.current?.click()}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  Replace
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrimaryFile(null);
-                    clearMessages();
-                  }}
-                  className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => primaryInputRef.current?.click()}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  primaryInputRef.current?.click();
-                }
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setPrimaryDragging(true);
-              }}
-              onDragLeave={() => setPrimaryDragging(false)}
-              onDrop={handlePrimaryDrop}
-              className={`mt-6 cursor-pointer rounded-3xl border-2 border-dashed px-6 py-12 text-center transition ${
-                primaryDragging
-                  ? "border-[#0a3d73] bg-blue-50"
-                  : "border-slate-300 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/50"
-              }`}
-            >
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-semibold text-[#0a3d73]">
-                ↑
-              </div>
-
-              <h3 className="mt-5 text-lg font-semibold text-slate-950">
-                Drag and drop the IEP here
-              </h3>
-
-              <p className="mt-2 text-sm text-slate-600">
-                Or click to browse your computer.
-              </p>
-
-              <p className="mt-4 text-xs text-slate-400">
-                PDF or DOCX · Maximum 25 MB
-              </p>
-            </div>
-          )}
-
-          <div className="mt-6">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Or paste IEP text
-              </span>
-
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            <div className="mt-5">
-              <textarea
-                value={primaryText}
-                onChange={(event) => {
-                  setPrimaryText(event.target.value);
-                  clearMessages();
-                }}
-                placeholder="Paste the complete IEP draft here. Include the PLAAFP, vision, annual goals, accommodations, services, FIE or evaluation information, recommended TEKS, and any other relevant IEP sections."
-                className="h-80 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-4 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
-              />
-
-              <div className="mt-2 flex justify-end">
-                <span className="text-xs text-slate-400">
-                  {primaryText.length.toLocaleString()} characters
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
+      <div className="mt-2 flex justify-end">
+        <span className="text-xs text-slate-400">
+          {primaryText.length.toLocaleString()} characters
+        </span>
+      </div>
+    </label>
+  </div>
+</section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div>

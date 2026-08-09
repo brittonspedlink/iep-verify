@@ -308,6 +308,10 @@ export async function POST(
 
     const primaryFile =
       sourceInput?.files?.primary as StoredFileMetadata | null | undefined;
+    const pastedPrimaryText =
+  typeof sourceInput?.primaryText === "string"
+    ? sourceInput.primaryText.trim()
+    : "";  
     const combinedSurveyFiles =
   (sourceInput?.files?.combinedSurvey as StoredFileMetadata[] | undefined) ?? [];
 
@@ -341,36 +345,61 @@ const classifiedCombinedSurvey =
         parentSurvey: "",
         studentSurvey: "",
       };
-    if (!primaryFile?.path) {
-      return NextResponse.json(
-        { error: "No primary IEP document is attached to this audit." },
-        { status: 400 }
-      );
-    }
+if (!primaryFile?.path && !pastedPrimaryText) {
+  return NextResponse.json(
+    { error: "No primary IEP document or pasted IEP text was provided." },
+    { status: 400 }
+  );
+}
 
-    const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from("audit-documents")
-      .download(primaryFile.path);
+let rawText = "";
+let totalPages = 0;
+let primaryFileName = "Pasted IEP";
+let primaryFilePath: string | null = null;
 
-    if (downloadError || !fileBlob) {
-      console.error("Primary document download error:", downloadError);
+if (primaryFile?.path) {
+  const { data: fileBlob, error: downloadError } = await supabase.storage
+    .from("audit-documents")
+    .download(primaryFile.path);
 
-      return NextResponse.json(
-        { error: "Unable to download the primary IEP document." },
-        { status: 500 }
-      );
-    }
+  if (downloadError || !fileBlob) {
+    console.error("Primary document download error:", downloadError);
 
-const arrayBuffer = await fileBlob.arrayBuffer();
-const pdfData = new Uint8Array(arrayBuffer);
+    return NextResponse.json(
+      { error: "Unable to download the primary IEP document." },
+      { status: 500 }
+    );
+  }
 
-const pdf = await getDocumentProxy(pdfData);
+  const extension = primaryFile.name.toLowerCase();
 
-const { totalPages, text } = await extractText(pdf, {
-  mergePages: true,
-});
+  if (extension.endsWith(".docx")) {
+    const arrayBuffer = await fileBlob.arrayBuffer();
 
-const rawText = text.trim();
+    const result = await mammoth.extractRawText({
+      buffer: Buffer.from(arrayBuffer),
+    });
+
+    rawText = result.value.trim();
+  } else {
+    const arrayBuffer = await fileBlob.arrayBuffer();
+    const pdfData = new Uint8Array(arrayBuffer);
+
+    const pdf = await getDocumentProxy(pdfData);
+
+    const extracted = await extractText(pdf, {
+      mergePages: true,
+    });
+
+    totalPages = extracted.totalPages;
+    rawText = extracted.text.trim();
+  }
+
+  primaryFileName = primaryFile.name;
+  primaryFilePath = primaryFile.path;
+} else {
+  rawText = pastedPrimaryText;
+}
 const detectedSections = detectIepSections(rawText);
 
     if (!rawText) {
@@ -418,8 +447,8 @@ primaryIep: {
   text: rawText,
   pageCount: totalPages,
   extractedAt: new Date().toISOString(),
-  fileName: primaryFile.name,
-  filePath: primaryFile.path,
+  fileName: primaryFileName,
+  filePath: primaryFilePath,
   detectedSections,
 },
       },
@@ -446,7 +475,7 @@ primaryIep: {
     return NextResponse.json({
       success: true,
       auditId,
-      fileName: primaryFile.name,
+      fileName: primaryFileName,
       pageCount: totalPages,
       characterCount: rawText.length,
       preview: rawText.slice(0, 1000),

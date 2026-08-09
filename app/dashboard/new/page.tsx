@@ -1,26 +1,5 @@
 import Link from "next/link";
 
-const alternativeOptions = [
-  {
-    title: "Paste IEP Sections",
-    description:
-      "Paste source evidence, PLAAFP, goals, accommodations, services, and other IEP sections into a guided workflow.",
-    href: "/dashboard/new/paste",
-    icon: "≡",
-    iconClass: "bg-emerald-100 text-emerald-700",
-    linkClass: "text-emerald-700",
-  },
-  {
-    title: "Resume Audit",
-    description:
-      "Return to a previously saved audit and continue where you left off.",
-    href: "/dashboard/audits",
-    icon: "↻",
-    iconClass: "bg-slate-100 text-slate-700",
-    linkClass: "text-slate-700",
-  },
-];
-
 export default function NewAuditPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -34,8 +13,9 @@ export default function NewAuditPage() {
         </h1>
 
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-          Upload a complete IEP document, paste individual sections, or resume
-          an existing audit.
+          Upload a complete IEP document or paste the IEP text directly. Add
+          supporting evidence, review the detected sections, and run the
+          evidence-alignment audit.
         </p>
       </section>
 
@@ -51,19 +31,20 @@ export default function NewAuditPage() {
             </p>
 
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              Upload IEP
+              Upload or Paste IEP
             </h2>
 
             <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600 sm:text-base">
-              Upload a PDF or DOCX. IEP Verify will prepare the document for
-              section review before the audit runs.
+              Upload a PDF or DOCX, or paste the complete IEP text directly.
+              IEP Verify will prepare the document for section review before
+              the audit runs.
             </p>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {[
                 "PDF and DOCX support",
+                "Paste complete IEP text",
                 "Section-by-section review",
-                "Missing-section warnings",
                 "Editable extracted content",
               ].map((item) => (
                 <div
@@ -85,7 +66,7 @@ export default function NewAuditPage() {
               href="/dashboard/new/upload"
               className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
-              Upload IEP
+              Start IEP Review
               <span aria-hidden="true">→</span>
             </Link>
           </div>
@@ -99,21 +80,27 @@ export default function NewAuditPage() {
               {[
                 {
                   step: "1",
-                  title: "Upload received",
+                  title: "Add the IEP",
                   description:
-                    "Select the IEP and any supporting documents you want included.",
+                    "Upload a PDF or DOCX, or paste the IEP text directly.",
                 },
                 {
                   step: "2",
-                  title: "Sections identified",
+                  title: "Add supporting evidence",
                   description:
-                    "Review detected content such as PLAAFP, goals, accommodations, and services.",
+                    "Upload or paste survey evidence, case manager notes, FIE information, and progress data.",
                 },
                 {
                   step: "3",
+                  title: "Review detected sections",
+                  description:
+                    "Confirm the PLAAFP, goals, accommodations, services, and other identified IEP content.",
+                },
+                {
+                  step: "4",
                   title: "Run the audit",
                   description:
-                    "Confirm the extracted sections and begin the evidence-alignment review.",
+                    "Compare the confirmed IEP documentation against the supporting evidence.",
                 },
               ].map((item, index, items) => (
                 <div key={item.step} className="flex gap-4">
@@ -154,47 +141,36 @@ export default function NewAuditPage() {
         </div>
       </section>
 
-      <section>
-        <div>
-          <h2 className="text-xl font-semibold text-slate-950">
-            Other ways to begin
-          </h2>
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg font-semibold text-slate-700">
+              ↻
+            </div>
 
-          <p className="mt-1 text-sm text-slate-600">
-            Choose another workflow when a complete IEP document is not
-            available.
-          </p>
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {alternativeOptions.map((option) => (
-            <Link
-              key={option.title}
-              href={option.href}
-              className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-            >
-              <div
-                className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg font-semibold ${option.iconClass}`}
-              >
-                {option.icon}
-              </div>
-
-              <h3 className="mt-5 text-lg font-semibold text-slate-950">
-                {option.title}
-              </h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {option.description}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                Continue your work
               </p>
 
-              <p className={`mt-5 text-sm font-semibold ${option.linkClass}`}>
-                Continue
-                <span className="ml-2 inline-block transition group-hover:translate-x-1">
-                  →
-                </span>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                Resume an existing audit
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Return to a previously started audit and continue from where
+                you left off.
               </p>
-            </Link>
-          ))}
+            </div>
+          </div>
+
+          <Link
+            href="/dashboard/audits"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            View Audits
+            <span aria-hidden="true">→</span>
+          </Link>
         </div>
       </section>
 

@@ -119,6 +119,15 @@ if (audit) {
       badge: "PDF",
     });
   }
+
+  if (!files.primary?.name && sourceInput.primaryText?.trim()) {
+  summaryItems.push({
+    name: "Pasted IEP",
+    type: "Primary IEP",
+    detail: `${sourceInput.primaryText.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
   for (const file of files.teacherSurvey ?? []) {
   summaryItems.push({
     name: file.name,
