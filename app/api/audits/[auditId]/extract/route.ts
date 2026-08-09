@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import OpenAI from "openai";
+import mammoth from "mammoth";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 
@@ -44,11 +45,15 @@ async function extractStoredEvidenceFile(
     return text.trim();
   }
 
-  if (extension.endsWith(".docx")) {
-    throw new Error(
-      `DOCX extraction is not wired yet for ${file.name}.`
-    );
-  }
+if (extension.endsWith(".docx")) {
+  const arrayBuffer = await fileBlob.arrayBuffer();
+
+  const result = await mammoth.extractRawText({
+    buffer: Buffer.from(arrayBuffer),
+  });
+
+  return result.value.trim();
+}
 
   throw new Error(`Unsupported file type for ${file.name}.`);
 }
