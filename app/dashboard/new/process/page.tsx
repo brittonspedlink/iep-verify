@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 const processingSteps = [
   {
@@ -50,52 +52,195 @@ const processingSteps = [
   },
 ];
 
-const documentSummary = [
-  {
-    name: "J.R. — Annual IEP Review.pdf",
-    type: "Primary IEP",
-    detail: "32 pages",
-  },
-  {
-    name: "FIE Summary.pdf",
-    type: "Supporting document",
-    detail: "8 pages",
-  },
-  {
-    name: "Teacher Survey.pdf",
-    type: "Supporting document",
-    detail: "3 pages",
-  },
-];
-
+type DocumentSummaryItem = {
+  name: string;
+  type: string;
+  detail: string;
+  badge: string;
+};
 export default function ProcessingPage() {
+  const searchParams = useSearchParams();
+  const auditId = searchParams.get("auditId");
+
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(8);
   const [finished, setFinished] = useState(false);
+  const [documentSummary, setDocumentSummary] =
+  useState<DocumentSummaryItem[]>([]);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCurrentStep((current) => {
-        if (current >= processingSteps.length - 1) {
-          window.clearInterval(timer);
-          setProgress(100);
-          setFinished(true);
-          return current;
+useEffect(() => {
+  if (!auditId) {
+    return;
+  }
+
+  let cancelled = false;
+
+  async function extractDocument() {
+    try {
+      setCurrentStep(1);
+      setProgress(15);
+
+      const response = await fetch(
+        `/api/audits/${encodeURIComponent(auditId!)}/extract`,
+        {
+          method: "POST",
         }
-
-        return current + 1;
-      });
-
-      setProgress((current) =>
-        Math.min(
-          current + Math.ceil(100 / processingSteps.length),
-          100
-        )
       );
-    }, 850);
 
-    return () => window.clearInterval(timer);
-  }, []);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to process the uploaded document."
+        );
+      }
+const { data: audit, error: auditError } = await supabase
+  .from("audits")
+  .select("source_input")
+  .eq("id", auditId)
+  .single();
+
+if (auditError || !audit) {
+  console.error("Processing document summary load error:", auditError);
+}
+
+if (audit) {
+  const sourceInput = audit.source_input ?? {};
+  const files = sourceInput.files ?? {};
+  const evidenceText = sourceInput.evidenceText ?? {};
+
+  const summaryItems: DocumentSummaryItem[] = [];
+
+  if (files.primary?.name) {
+    summaryItems.push({
+      name: files.primary.name,
+      type: "Primary IEP",
+      detail: "Uploaded document",
+      badge: "PDF",
+    });
+  }
+  for (const file of files.teacherSurvey ?? []) {
+  summaryItems.push({
+    name: file.name,
+    type: "Teacher Survey Evidence",
+    detail: "Uploaded supporting document",
+    badge: file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF",
+  });
+}
+if (evidenceText.teacherSurvey?.trim()) {
+  summaryItems.push({
+    name: "Teacher Survey Evidence",
+    type: "Pasted evidence",
+    detail: `${evidenceText.teacherSurvey.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
+for (const file of files.parentSurvey ?? []) {
+  summaryItems.push({
+    name: file.name,
+    type: "Parent Survey Evidence",
+    detail: "Uploaded supporting document",
+    badge: file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF",
+  });
+}
+if (evidenceText.parentSurvey?.trim()) {
+  summaryItems.push({
+    name: "Parent Survey Evidence",
+    type: "Pasted evidence",
+    detail: `${evidenceText.parentSurvey.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
+for (const file of files.studentSurvey ?? []) {
+  summaryItems.push({
+    name: file.name,
+    type: "Student Survey Evidence",
+    detail: "Uploaded supporting document",
+    badge: file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF",
+  });
+}
+if (evidenceText.studentSurvey?.trim()) {
+  summaryItems.push({
+    name: "Student Survey Evidence",
+    type: "Pasted evidence",
+    detail: `${evidenceText.studentSurvey.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
+for (const file of files.caseManagerNotes ?? []) {
+  summaryItems.push({
+    name: file.name,
+    type: "Case Manager Notes",
+    detail: "Uploaded supporting document",
+    badge: file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF",
+  });
+}
+if (evidenceText.caseManagerNotes?.trim()) {
+  summaryItems.push({
+    name: "Case Manager Notes",
+    type: "Pasted evidence",
+    detail: `${evidenceText.caseManagerNotes.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
+for (const file of files.fieEvaluation ?? []) {
+  summaryItems.push({
+    name: file.name,
+    type: "FIE / Evaluation Evidence",
+    detail: "Uploaded supporting document",
+    badge: file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF",
+  });
+}
+if (evidenceText.fieEvaluation?.trim()) {
+  summaryItems.push({
+    name: "FIE / Evaluation Evidence",
+    type: "Pasted evidence",
+    detail: `${evidenceText.fieEvaluation.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
+for (const file of files.progressData ?? []) {
+  summaryItems.push({
+    name: file.name,
+    type: "Progress Data",
+    detail: "Uploaded supporting document",
+    badge: file.name.toLowerCase().endsWith(".docx") ? "DOCX" : "PDF",
+  });
+}
+if (evidenceText.progressData?.trim()) {
+  summaryItems.push({
+    name: "Progress Data",
+    type: "Pasted evidence",
+    detail: `${evidenceText.progressData.trim().length.toLocaleString()} characters`,
+    badge: "TEXT",
+  });
+}
+  setDocumentSummary(summaryItems);
+}
+      if (cancelled) {
+        return;
+      }
+
+      setCurrentStep(processingSteps.length - 1);
+      setProgress(100);
+      setFinished(true);
+
+      console.log("EXTRACTION RESULT:", data);
+    } catch (error) {
+      if (cancelled) {
+        return;
+      }
+
+      console.error("Document extraction error:", error);
+    }
+  }
+
+  extractDocument();
+
+  return () => {
+    cancelled = true;
+  };
+}, [auditId]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -283,11 +428,11 @@ export default function ProcessingPage() {
         <aside className="space-y-6">
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-950">
-              Current Documents
+              Sources Being Processed
             </h2>
 
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              The files below are being prepared for section review.
+              Uploaded documents and pasted evidence being prepared for review.
             </p>
 
             <div className="mt-5 space-y-3">
@@ -298,7 +443,7 @@ export default function ProcessingPage() {
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-sm font-semibold text-[#0a3d73]">
-                      PDF
+                      {document.badge}
                     </div>
 
                     <div className="min-w-0">
@@ -362,8 +507,8 @@ export default function ProcessingPage() {
         </Link>
 
         {finished ? (
-          <Link
-            href="/dashboard/new/review"
+<Link
+  href={`/dashboard/new/review?auditId=${encodeURIComponent(auditId ?? "")}`}
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200"
           >
             Review Extracted Sections

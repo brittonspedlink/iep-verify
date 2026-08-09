@@ -800,11 +800,16 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 ) : (
-                  recentAudits.map((audit) => (
-                    <tr
-                      key={audit.id}
-                      className="border-t border-slate-200"
-                    >
+recentAudits.map((audit) => (
+  <tr
+    key={audit.id}
+    onClick={() =>
+      router.push(
+        `/dashboard/new/process?auditId=${encodeURIComponent(audit.id)}`
+      )
+    }
+    className="cursor-pointer border-t border-slate-200 transition hover:bg-slate-50"
+  >
                       <td className="px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dce9f7] text-xs font-semibold text-[#0a3d73]">

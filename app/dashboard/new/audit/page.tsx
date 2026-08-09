@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent, Fragment } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type FormState = {
   teacherSurvey: string;
@@ -111,6 +113,9 @@ function fieldLabel(key: TextFieldKey) {
 }
 
 export default function ReviewAndRunAuditPage() {
+  const searchParams = useSearchParams();
+  const auditId = searchParams.get("auditId");
+
   const [formData, setFormData] = useState<FormState>(initialState);
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [validationError, setValidationError] = useState("");
@@ -135,6 +140,70 @@ export default function ReviewAndRunAuditPage() {
   const [auditMessage, setAuditMessage] = useState(
     "Ready to compare generated documentation against survey evidence and surface supported content, missing information, unsupported statements, and alignment concerns."
   );
+
+  useEffect(() => {
+  if (!auditId) {
+    return;
+  }
+
+  let cancelled = false;
+
+  async function loadAudit() {
+    const { data: audit, error } = await supabase
+      .from("audits")
+      .select("id, source_input")
+      .eq("id", auditId)
+      .single();
+
+    if (cancelled) {
+      return;
+    }
+
+    if (error || !audit) {
+      console.error("Audit page load error:", error);
+      setAuditError("Unable to load the saved audit.");
+      return;
+    }
+
+const reviewedSections = audit.source_input?.reviewed?.sections;
+const evidenceText = audit.source_input?.evidenceText;
+
+setFormData((current) => ({
+  ...current,
+
+expectedTeacherSurveyCount:
+  audit.source_input?.expectedTeacherSurveyCount ?? 0,
+
+completedTeacherSurveyCount:
+  audit.source_input?.completedTeacherSurveyCount ?? 0,
+
+  // Supporting evidence
+  teacherSurvey: evidenceText?.teacherSurvey ?? "",
+  parentSurvey: evidenceText?.parentSurvey ?? "",
+  studentSurvey: evidenceText?.studentSurvey ?? "",
+  caseNotes: evidenceText?.caseManagerNotes ?? "",
+
+  // Reviewed IEP content
+  fieSummary:
+    reviewedSections?.fieSummary ??
+    evidenceText?.fieEvaluation ??
+    "",
+
+  plaaFP: reviewedSections?.plaafp ?? "",
+  vision: reviewedSections?.vision ?? "",
+  goals: reviewedSections?.goals ?? "",
+  accommodations: reviewedSections?.accommodations ?? "",
+  services: reviewedSections?.services ?? "",
+  recommendedTEKS: reviewedSections?.recommendedTeks ?? "",
+}));
+  }
+
+  loadAudit();
+
+  return () => {
+    cancelled = true;
+  };
+}, [auditId]);
   const resultsRef = useRef<HTMLElement | null>(null);
 
   const handleTextChange = (field: TextFieldKey) => (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -321,9 +390,32 @@ export default function ReviewAndRunAuditPage() {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <section>
+return (
+  <div className="mx-auto max-w-6xl space-y-8">
+    <style jsx global>{`
+      @media print {
+        body * {
+          visibility: hidden !important;
+        }
+
+        #audit-results,
+        #audit-results * {
+          visibility: visible !important;
+        }
+
+        #audit-results {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
+        }
+      }
+    `}</style>
+
+    <section>
         <Link href="/dashboard/new/review" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0a3d73] hover:underline"><span aria-hidden="true">←</span>Back to Review Sections</Link>
         <p className="mt-6 text-xs font-semibold uppercase tracking-[0.26em] text-[#4d9e7c]">Final review</p>
         <div className="mt-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -376,7 +468,7 @@ export default function ReviewAndRunAuditPage() {
 
           <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-lg font-semibold text-[#0a3d73] shadow-sm">i</div><h2 className="mt-5 text-lg font-semibold text-[#0a3d73]">Final human review</h2><p className="mt-2 text-sm leading-6 text-slate-600">Uploaded audits arrive with extracted content populated. Manual-entry audits use the same workspace with blank fields. Expand a section only when you need to inspect or edit it.</p></section>
 
-          {auditResult ? <button type="button" onClick={() => window.print()} className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Export Audit</button> : null}
+          {auditResult ? <button type="button" onClick={() => window.print()} className="print:hidden inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Export Audit</button> : null}
           <button type="button" onClick={handleRunAudit} disabled={isAuditing} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-70">{isAuditing ? "Running audit..." : "Run Evidence Audit"}<span aria-hidden="true">→</span></button>
         </aside>
       </section>
@@ -388,7 +480,7 @@ export default function ReviewAndRunAuditPage() {
 >
   <div className="hidden print:block print:mb-8">
   <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-    SpedLink
+    IEP Verify
   </p>
 
   <h1 className="mt-2 text-3xl font-semibold text-slate-950">
@@ -470,7 +562,7 @@ export default function ReviewAndRunAuditPage() {
             </div>
 
             <div className="mt-8 text-sm leading-7 text-slate-500">
-              IEP Verify evaluates SpedLink-generated documentation based on the records supplied. It does not certify legal compliance or verify implementation.
+              IEP Verify evaluates submitted IEP documentation based on the records supplied. It does not certify legal compliance or verify implementation.
             </div>
 
             <div className="mt-8 grid gap-4 xl:grid-cols-2">
@@ -478,13 +570,13 @@ export default function ReviewAndRunAuditPage() {
                 {
                   key: "accommodations",
                   label: "Accommodations Alignment",
-                  note: "This review evaluates SpedLink accommodations against source evidence. It does not verify delivery, scheduling, implementation, or compliance logs.",
+                  note: "This review evaluates IEP accommodations against source evidence. It does not verify delivery, scheduling, implementation, or compliance logs.",
                   noData: "Not evaluated — no generated accommodations were provided.",
                 },
                 {
                   key: "services",
                   label: "Services Alignment",
-                  note: "This review evaluates the documentation and evidence alignment of SpedLink’s service recommendations. It does not verify service delivery, scheduling, implementation, or compliance logs.",
+                  note: "This review evaluates the documentation and evidence alignment of the IEP services. It does not verify service delivery, scheduling, implementation, or compliance logs.",
                   noData: "Not evaluated — no generated services recommendations were provided.",
                 },
               ].map(({ key, label, note, noData }) => {

@@ -17,7 +17,10 @@ type SelectedFile = {
 };
 
 type EvidenceKey =
-  | "surveys"
+  | "teacherSurvey"
+  | "parentSurvey"
+  | "studentSurvey"
+  | "combinedSurvey"
   | "caseManagerNotes"
   | "fieEvaluation"
   | "progressData";
@@ -53,28 +56,51 @@ const acceptedFileTypes = [
 const maxFileSize = 25 * 1024 * 1024;
 
 const evidenceDefinitions: EvidenceDefinition[] = [
-  {
-    
-  key: "surveys",
-  title: "Survey Evidence",
+{
+  key: "teacherSurvey",
+  title: "Teacher Survey Evidence",
   description:
-    "Upload the teacher, parent, and student survey documents used to create the IEP. Include both the survey questions and responses whenever available.",
+    "Upload or paste teacher survey questions, responses, observations, and classroom evidence used to inform the IEP.",
   uploadInstructions:
-    "Upload one combined survey document or separate teacher, parent, and student survey documents.",
+    "Upload one or more completed teacher survey documents.",
   pastePlaceholder:
-    "Paste the survey questions and responses here. Include both the prompts and responses whenever possible.",
+    "Paste teacher survey questions and responses here. Include both prompts and responses whenever possible.",
   badge: "Required",
   badgeClass: "border-rose-200 bg-rose-50 text-rose-700",
 },
+{
+  key: "parentSurvey",
+  title: "Parent Survey Evidence",
+  description:
+    "Upload or paste parent survey questions, responses, concerns, priorities, and family input used to inform the IEP.",
+  uploadInstructions:
+    "Upload one or more completed parent survey documents.",
+  pastePlaceholder:
+    "Paste parent survey questions and responses here. Include both prompts and responses whenever possible.",
+  badge: "Optional",
+  badgeClass: "border-slate-200 bg-slate-50 text-slate-600",
+},
+{
+  key: "studentSurvey",
+  title: "Student Survey Evidence",
+  description:
+    "Upload or paste student survey questions, responses, preferences, strengths, needs, and student voice.",
+  uploadInstructions:
+    "Upload one or more completed student survey documents.",
+  pastePlaceholder:
+    "Paste student survey questions and responses here. Include both prompts and responses whenever possible.",
+  badge: "Optional",
+  badgeClass: "border-slate-200 bg-slate-50 text-slate-600",
+},
   {
-    key: "caseManagerNotes",
-    title: "Case Manager Notes",
+    key: "combinedSurvey",
+    title: "Combined Survey Evidence",
     description:
-      "Provide case manager observations, teacher follow-up notes, ARD preparation notes, or other relevant context.",
+      "Upload or paste a document containing teacher, parent, and/or student survey responses.",
     uploadInstructions:
-      "Upload one or more case manager, teacher, or parent note documents.",
+      "Upload one or more combined survey documents.",
     pastePlaceholder:
-      "Paste case manager notes, teacher follow-up information, parent concerns, ARD preparation notes, or other relevant context.",
+      "Paste combined teacher, parent, and student survey questions and responses here. Include respondent labels when available.",
     badge: "Optional",
     badgeClass: "border-slate-200 bg-slate-50 text-slate-600",
   },
@@ -105,28 +131,40 @@ const evidenceDefinitions: EvidenceDefinition[] = [
 ];
 
 const initialEvidenceFiles: EvidenceFiles = {
-  surveys: [],
+  teacherSurvey: [],
+  parentSurvey: [],
+  studentSurvey: [],
+  combinedSurvey: [],
   caseManagerNotes: [],
   fieEvaluation: [],
   progressData: [],
 };
 
 const initialEvidenceText: EvidenceText = {
-  surveys: "",
+  teacherSurvey: "",
+  parentSurvey: "",
+  studentSurvey: "",
+  combinedSurvey: "",
   caseManagerNotes: "",
   fieEvaluation: "",
   progressData: "",
 };
 
 const initialEvidenceDragging: EvidenceDragging = {
-  surveys: false,
+  teacherSurvey: false,
+  parentSurvey: false,
+  studentSurvey: false,
+  combinedSurvey: false,
   caseManagerNotes: false,
   fieEvaluation: false,
   progressData: false,
 };
 
 const initialAccordionState: AccordionState = {
-  surveys: true,
+  teacherSurvey: true,
+  parentSurvey: false,
+  studentSurvey: false,
+  combinedSurvey: false,
   caseManagerNotes: false,
   fieEvaluation: false,
   progressData: false,
@@ -366,14 +404,18 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     return;
   }
 
-  const hasSurveyEvidence =
-    evidenceFiles.surveys.length > 0 ||
-    evidenceText.surveys.trim().length > 0;
+const hasSurveyEvidence =
+  evidenceFiles.teacherSurvey.length > 0 ||
+  evidenceText.teacherSurvey.trim().length > 0 ||
+  evidenceFiles.parentSurvey.length > 0 ||
+  evidenceText.parentSurvey.trim().length > 0 ||
+  evidenceFiles.studentSurvey.length > 0 ||
+  evidenceText.studentSurvey.trim().length > 0;
 
   if (!hasSurveyEvidence) {
     setAccordionState((current) => ({
       ...current,
-      surveys: true,
+      teacherSurvey: true,
     }));
 
     setErrorMessage(
@@ -426,20 +468,25 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     }
 
     const initialSourceInput = {
-      evidenceText: {
-        surveys: evidenceText.surveys,
-        caseManagerNotes: evidenceText.caseManagerNotes,
-        fieEvaluation: evidenceText.fieEvaluation,
-        progressData: evidenceText.progressData,
-      },
+evidenceText: {
+  teacherSurvey: evidenceText.teacherSurvey,
+  parentSurvey: evidenceText.parentSurvey,
+  studentSurvey: evidenceText.studentSurvey,
+  combinedSurvey: evidenceText.combinedSurvey,
+  caseManagerNotes: evidenceText.caseManagerNotes,
+  fieEvaluation: evidenceText.fieEvaluation,
+  progressData: evidenceText.progressData,
+},
 
-      files: {
-        primary: null,
-        surveys: [],
-        caseManagerNotes: [],
-        fieEvaluation: [],
-        progressData: [],
-      },
+files: {
+  primary: null,
+  teacherSurvey: [],
+  parentSurvey: [],
+  studentSurvey: [],
+  caseManagerNotes: [],
+  fieEvaluation: [],
+  progressData: [],
+},
 
       metadata: {
         auditName: auditName.trim(),
@@ -540,22 +587,27 @@ if (auditError) {
       "primary"
     );
 
-    const storedEvidenceFiles: Record<
-      EvidenceKey,
-      StoredFileMetadata[]
-    > = {
-      surveys: [],
-      caseManagerNotes: [],
-      fieEvaluation: [],
-      progressData: [],
-    };
+const storedEvidenceFiles: Record<
+  EvidenceKey,
+  StoredFileMetadata[]
+> = {
+  teacherSurvey: [],
+  parentSurvey: [],
+  studentSurvey: [],
+  combinedSurvey: [],
+  caseManagerNotes: [],
+  fieEvaluation: [],
+  progressData: [],
+};
 
-    const evidenceKeys: EvidenceKey[] = [
-      "surveys",
-      "caseManagerNotes",
-      "fieEvaluation",
-      "progressData",
-    ];
+const evidenceKeys: EvidenceKey[] = [
+  "teacherSurvey",
+  "parentSurvey",
+  "studentSurvey",
+  "caseManagerNotes",
+  "fieEvaluation",
+  "progressData",
+];
 
     for (const key of evidenceKeys) {
       for (const selectedFile of evidenceFiles[key]) {
@@ -569,20 +621,24 @@ if (auditError) {
     }
 
     const finalSourceInput = {
-      evidenceText: {
-        surveys: evidenceText.surveys,
-        caseManagerNotes: evidenceText.caseManagerNotes,
-        fieEvaluation: evidenceText.fieEvaluation,
-        progressData: evidenceText.progressData,
-      },
+evidenceText: {
+  teacherSurvey: evidenceText.teacherSurvey,
+  parentSurvey: evidenceText.parentSurvey,
+  studentSurvey: evidenceText.studentSurvey,
+  caseManagerNotes: evidenceText.caseManagerNotes,
+  fieEvaluation: evidenceText.fieEvaluation,
+  progressData: evidenceText.progressData,
+},
 
-      files: {
-        primary: primaryDocument,
-        surveys: storedEvidenceFiles.surveys,
-        caseManagerNotes: storedEvidenceFiles.caseManagerNotes,
-        fieEvaluation: storedEvidenceFiles.fieEvaluation,
-        progressData: storedEvidenceFiles.progressData,
-      },
+files: {
+  primary: primaryDocument,
+  teacherSurvey: storedEvidenceFiles.teacherSurvey,
+  parentSurvey: storedEvidenceFiles.parentSurvey,
+  studentSurvey: storedEvidenceFiles.studentSurvey,
+  caseManagerNotes: storedEvidenceFiles.caseManagerNotes,
+  fieEvaluation: storedEvidenceFiles.fieEvaluation,
+  progressData: storedEvidenceFiles.progressData,
+},
 
       metadata: {
         auditName: auditName.trim(),

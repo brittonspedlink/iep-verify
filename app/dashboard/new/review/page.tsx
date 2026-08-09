@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type SectionKey =
   | "studentInformation"
@@ -20,6 +21,7 @@ type SectionKey =
 type SectionState = Record<SectionKey, string>;
 type ExpandedState = Record<SectionKey, boolean>;
 type ConfirmedState = Record<SectionKey, boolean>;
+type AbsentState = Record<SectionKey, boolean>;
 
 type SectionDefinition = {
   key: SectionKey;
@@ -196,17 +198,143 @@ const initialConfirmedState: ConfirmedState = {
   progressMonitoring: false,
 };
 
+const initialAbsentState: AbsentState = {
+  studentInformation: false,
+  eligibility: false,
+  fieSummary: false,
+  plaafp: false,
+  vision: false,
+  goals: false,
+  accommodations: false,
+  services: false,
+  recommendedTeks: false,
+  transition: false,
+  progressMonitoring: false,
+};
+
+type StoredDetectedSection = {
+  key: string;
+  label: string;
+  found: boolean;
+  text: string;
+};
+
 export default function ReviewExtractedSectionsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const auditId = searchParams.get("auditId");
 
   const [sections, setSections] = useState<SectionState>(initialSections);
   const [expanded, setExpanded] =
     useState<ExpandedState>(initialExpandedState);
   const [confirmed, setConfirmed] =
     useState<ConfirmedState>(initialConfirmedState);
+  const [absent, setAbsent] =
+  useState<AbsentState>(initialAbsentState);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+
+useEffect(() => {
+  if (!auditId) {
+    setErrorMessage("No audit ID was provided.");
+    return;
+  }
+
+  let cancelled = false;
+
+  async function loadExtractedSections() {
+    const { data: audit, error } = await supabase
+      .from("audits")
+      .select(
+        "id, student_identifier, grade_level, audit_type, source_input"
+      )
+      .eq("id", auditId)
+      .single();
+
+    if (cancelled) {
+      return;
+    }
+
+    if (error || !audit) {
+      console.error("Review audit load error:", error);
+      setErrorMessage("Unable to load the extracted audit sections.");
+      return;
+    }
+
+    const detectedSections =
+      (audit.source_input?.extracted?.primaryIep
+        ?.detectedSections ?? []) as StoredDetectedSection[];
+
+    const detectedByKey = new Map(
+      detectedSections.map((section) => [section.key, section])
+    );
+
+    const getDetectedText = (key: string) =>
+      detectedByKey.get(key)?.text?.trim() ?? "";
+
+    const savedReview = audit.source_input?.reviewed;
+
+    const savedSections =
+     (savedReview?.sections ?? null) as SectionState | null;
+
+    const savedConfirmed =
+     (savedReview?.confirmed ?? null) as ConfirmedState | null;
+
+    const savedAbsent =
+     (savedReview?.absent ?? null) as AbsentState | null;
+
+setSections(
+  savedSections ?? {
+    studentInformation: [
+      `Student Identifier: ${audit.student_identifier ?? ""}`,
+      `Grade Level: ${audit.grade_level ?? ""}`,
+      `Audit Type: ${audit.audit_type ?? ""}`,
+    ].join("\n"),
+
+    eligibility: "",
+
+    fieSummary: getDetectedText("fie_summary"),
+    plaafp: getDetectedText("plaafp"),
+    vision: getDetectedText("vision"),
+    goals: getDetectedText("annual_goals"),
+    accommodations: getDetectedText("accommodations"),
+    services: getDetectedText("services"),
+    recommendedTeks: getDetectedText("recommended_teks"),
+    transition: getDetectedText("transition"),
+    progressMonitoring: getDetectedText("progress_monitoring"),
+  }
+);
+if (savedConfirmed) {
+  setConfirmed(savedConfirmed);
+}
+
+if (savedAbsent) {
+  setAbsent(savedAbsent);
+}
+    setExpanded((current) => ({
+      ...current,
+      studentInformation: true,
+      fieSummary: Boolean(getDetectedText("fie_summary")),
+      plaafp: Boolean(getDetectedText("plaafp")),
+      vision: Boolean(getDetectedText("vision")),
+      goals: Boolean(getDetectedText("annual_goals")),
+      accommodations: Boolean(getDetectedText("accommodations")),
+      services: Boolean(getDetectedText("services")),
+      recommendedTeks: Boolean(getDetectedText("recommended_teks")),
+      progressMonitoring: Boolean(getDetectedText("progress_monitoring")),
+      transition: Boolean(getDetectedText("transition")),
+    }));
+
+    setErrorMessage("");
+  }
+
+  loadExtractedSections();
+
+  return () => {
+    cancelled = true;
+  };
+}, [auditId]);
 
   const requiredSections = useMemo(
     () => sectionDefinitions.filter((section) => section.required),
@@ -222,6 +350,9 @@ export default function ReviewExtractedSectionsPage() {
   const completionPercent = Math.round(
     (totalConfirmedCount / sectionDefinitions.length) * 100
   );
+
+  const allSectionsConfirmed =
+  totalConfirmedCount === sectionDefinitions.length;
 
   function clearMessages() {
     setErrorMessage("");
@@ -249,41 +380,40 @@ export default function ReviewExtractedSectionsPage() {
     clearMessages();
   }
 
-  function confirmSection(key: SectionKey) {
-    if (!sections[key].trim()) {
-      setExpanded((current) => ({
-        ...current,
-        [key]: true,
-      }));
+function confirmSection(key: SectionKey) {
+  const hasContent = sections[key].trim().length > 0;
 
-      setErrorMessage(
-        "Add or confirm content before marking this section as reviewed."
-      );
+  setConfirmed((current) => ({
+    ...current,
+    [key]: true,
+  }));
 
-      return;
-    }
+  setAbsent((current) => ({
+    ...current,
+    [key]: !hasContent,
+  }));
 
-    setConfirmed((current) => ({
-      ...current,
-      [key]: true,
-    }));
+  clearMessages();
+}
 
-    clearMessages();
-  }
+function reopenSection(key: SectionKey) {
+  setConfirmed((current) => ({
+    ...current,
+    [key]: false,
+  }));
 
-  function reopenSection(key: SectionKey) {
-    setConfirmed((current) => ({
-      ...current,
-      [key]: false,
-    }));
+  setAbsent((current) => ({
+    ...current,
+    [key]: false,
+  }));
 
-    setExpanded((current) => ({
-      ...current,
-      [key]: true,
-    }));
+  setExpanded((current) => ({
+    ...current,
+    [key]: true,
+  }));
 
-    clearMessages();
-  }
+  clearMessages();
+}
 
   function confirmAllCompletedSections() {
     const nextConfirmed = { ...confirmed };
@@ -298,39 +428,86 @@ export default function ReviewExtractedSectionsPage() {
     setStatusMessage("All completed sections have been marked as reviewed.");
     setErrorMessage("");
   }
+async function saveReview() {
+  if (!auditId) {
+    setErrorMessage("No audit ID was provided.");
+    return false;
+  }
 
-  function handleContinue() {
-    const unconfirmedRequiredSections = requiredSections.filter(
-      (section) => !confirmed[section.key]
+  clearMessages();
+
+  const { data: audit, error: loadError } = await supabase
+    .from("audits")
+    .select("source_input")
+    .eq("id", auditId)
+    .single();
+
+  if (loadError || !audit) {
+    console.error("Review save load error:", loadError);
+    setErrorMessage("Unable to load the audit before saving.");
+    return false;
+  }
+
+  const updatedSourceInput = {
+    ...(audit.source_input ?? {}),
+    reviewed: {
+      sections,
+      confirmed,
+      absent,
+      reviewedAt: new Date().toISOString(),
+    },
+  };
+
+  const { error: saveError } = await supabase
+    .from("audits")
+    .update({
+      source_input: updatedSourceInput,
+      updated_at: new Date().toISOString(),
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq("id", auditId);
+
+  if (saveError) {
+    console.error("Review save error:", saveError);
+    setErrorMessage("Unable to save the reviewed sections.");
+    return false;
+  }
+
+  setStatusMessage("Review saved successfully.");
+  return true;
+}
+async function handleContinue() {
+  const unconfirmedSections = sectionDefinitions.filter(
+    (section) => !confirmed[section.key]
+  );
+
+  if (unconfirmedSections.length > 0) {
+    const firstMissing = unconfirmedSections[0];
+
+    setExpanded((current) => ({
+      ...current,
+      [firstMissing.key]: true,
+    }));
+
+    setErrorMessage(
+      `Review and confirm every section before running the audit. Start with ${firstMissing.title}.`
     );
 
-    if (unconfirmedRequiredSections.length > 0) {
-      const firstMissing = unconfirmedRequiredSections[0];
-
-      setExpanded((current) => ({
-        ...current,
-        [firstMissing.key]: true,
-      }));
-
-      setErrorMessage(
-        `Review and confirm all required sections before continuing. Start with ${firstMissing.title}.`
-      );
-
-      return;
-    }
-
-    clearMessages();
-
-    /*
-      Later, this is where we will:
-      1. Save the reviewed section content to Supabase.
-      2. Mark the extraction review as complete.
-      3. Pass the structured fields into the existing audit form.
-      4. Navigate using the saved audit ID.
-    */
-
-    router.push("/dashboard/new/paste");
+    return;
   }
+
+  clearMessages();
+
+  const saved = await saveReview();
+
+  if (!saved) {
+    return;
+  }
+
+router.push(
+  `/dashboard/new/audit?auditId=${encodeURIComponent(auditId!)}`
+);
+}
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -459,11 +636,19 @@ export default function ReviewExtractedSectionsPage() {
                           {section.required ? "Required" : "Optional"}
                         </span>
 
-                        {isConfirmed ? (
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                            Reviewed
-                          </span>
-                        ) : null}
+                       {isConfirmed ? (
+  <>
+    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+      Reviewed
+    </span>
+
+    {absent[section.key] ? (
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+        Not Present
+      </span>
+    ) : null}
+  </>
+) : null}
                       </div>
 
                       <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -528,7 +713,7 @@ export default function ReviewExtractedSectionsPage() {
                             onClick={() => confirmSection(section.key)}
                             className="inline-flex items-center justify-center rounded-xl bg-[#0a3d73] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#07325f]"
                           >
-                            Confirm Section
+                            {hasContent ? "Confirm Section" : "Confirm Not Present"}
                           </button>
                         )}
                       </div>
@@ -657,24 +842,30 @@ export default function ReviewExtractedSectionsPage() {
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={() =>
-              setStatusMessage(
-                "Reviewed sections will be saved when Supabase is connected."
-              )
-            }
+            onClick={saveReview}
             className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             Save Review
           </button>
 
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200"
-          >
-            Continue to Run Audit
-            <span aria-hidden="true">→</span>
-          </button>
+<button
+  type="button"
+  onClick={handleContinue}
+  disabled={!allSectionsConfirmed}
+  title={
+    allSectionsConfirmed
+      ? "All sections confirmed. Continue to run the audit."
+      : "Confirm all sections before running the audit."
+  }
+  className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold shadow-sm transition ${
+    allSectionsConfirmed
+      ? "bg-[#0a3d73] text-white hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200"
+      : "cursor-not-allowed bg-slate-200 text-slate-400"
+  }`}
+>
+  Continue to Run Audit
+  <span aria-hidden="true">→</span>
+</button>
         </div>
       </section>
     </div>
