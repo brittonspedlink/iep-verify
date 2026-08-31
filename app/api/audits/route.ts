@@ -16,15 +16,7 @@ type AuditResult = {
 };
 
 type SaveAuditBody = {
-  auditName: string;
-  studentIdentifier: string;
-  gradeLevel?: string | null;
-  auditType?: string;
-
-  expectedTeacherSurveyCount?: number;
-  completedTeacherSurveyCount?: number;
-
-  sourceInput: Record<string, unknown>;
+  auditId: string;
   result: AuditResult;
 };
 
@@ -72,26 +64,11 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as SaveAuditBody;
 
-    const auditName = body.auditName?.trim();
-    const studentIdentifier = body.studentIdentifier?.trim();
+    const auditId = body.auditId?.trim();
 
-    if (!auditName) {
+    if (!auditId) {
       return NextResponse.json(
-        { error: "Audit name is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!studentIdentifier) {
-      return NextResponse.json(
-        { error: "Student identifier is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!body.sourceInput || typeof body.sourceInput !== "object") {
-      return NextResponse.json(
-        { error: "Audit source input is required." },
+        { error: "Audit ID is required." },
         { status: 400 }
       );
     }
@@ -104,121 +81,47 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------
-    // 3. GET USER'S ACTIVE MEMBERSHIP
+    // 3. VERIFY THE AUDIT BELONGS TO THE USER
     // -------------------------------------------------------
 
-    const { data: membership, error: membershipError } =
+    const { data: existingAudit, error: lookupError } =
       await supabase
-        .from("memberships")
-        .select(
-          `
-            id,
-            district_id,
-            campus_id,
-            role,
-            status
-          `
-        )
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .limit(1)
-        .maybeSingle();
+        .from("audits")
+        .select("id, owner_user_id")
+        .eq("id", auditId)
+        .single();
 
-    if (membershipError) {
-      console.error(
-        "Audit membership lookup error:",
-        membershipError
-      );
+    if (lookupError || !existingAudit) {
+      console.error("Audit lookup error:", lookupError);
 
       return NextResponse.json(
-        { error: "Unable to determine your IEP Verify workspace." },
-        { status: 500 }
+        { error: "Audit not found." },
+        { status: 404 }
       );
     }
 
-    if (!membership) {
+    if (existingAudit.owner_user_id !== user.id) {
       return NextResponse.json(
-        {
-          error:
-            "No active district or campus membership was found for this account.",
-        },
+        { error: "Forbidden." },
         { status: 403 }
       );
     }
 
     // -------------------------------------------------------
-    // 4. GET DISTRICT REVIEW FRAMEWORK
-    // -------------------------------------------------------
-
-    const { data: district, error: districtError } =
-      await supabase
-        .from("districts")
-        .select("id, framework_id")
-        .eq("id", membership.district_id)
-        .single();
-
-    if (districtError) {
-      console.error(
-        "Audit district lookup error:",
-        districtError
-      );
-
-      return NextResponse.json(
-        { error: "Unable to determine the review framework." },
-        { status: 500 }
-      );
-    }
-
-    // -------------------------------------------------------
-    // 5. NORMALIZE AUDIT VALUES
+    // 4. NORMALIZE RESULT VALUES
     // -------------------------------------------------------
 
     const now = new Date().toISOString();
-
-    const expectedTeacherSurveyCount = Math.max(
-      0,
-      Number(body.expectedTeacherSurveyCount ?? 0)
-    );
-
-    const completedTeacherSurveyCount = Math.max(
-      0,
-      Number(body.completedTeacherSurveyCount ?? 0)
-    );
-
     const status = mapAuditStatus(body.result.auditStatus);
 
     // -------------------------------------------------------
-    // 6. CREATE PERMANENT AUDIT RECORD
+    // 5. UPDATE EXISTING AUDIT WITH COMPLETED RESULT
     // -------------------------------------------------------
 
     const { data: audit, error: auditError } = await supabase
       .from("audits")
-      .insert({
-        owner_user_id: user.id,
-
-        district_id: membership.district_id,
-        campus_id: membership.campus_id,
-
-        audit_name: auditName,
-        student_identifier: studentIdentifier,
-        grade_level: body.gradeLevel?.trim() || null,
-
-        audit_type:
-          body.auditType?.trim() || "evidence_alignment",
-
+      .update({
         status,
-
-        framework_id: district.framework_id ?? null,
-
-        expected_teacher_survey_count:
-          expectedTeacherSurveyCount,
-
-        completed_teacher_survey_count:
-          completedTeacherSurveyCount,
-
-        external_source: "manual",
-
-        source_input: body.sourceInput,
 
         result_snapshot: body.result,
 
@@ -245,6 +148,8 @@ export async function POST(request: Request) {
         last_activity_at: now,
         updated_at: now,
       })
+      .eq("id", auditId)
+      .eq("owner_user_id", user.id)
       .select(
         `
           id,
@@ -274,7 +179,7 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------
-    // 7. RETURN SAVED AUDIT
+    // 6. RETURN UPDATED AUDIT
     // -------------------------------------------------------
 
     return NextResponse.json({

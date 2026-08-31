@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChangeEvent,
   DragEvent,
   FormEvent,
+  Suspense,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -15,7 +17,12 @@ type SelectedFile = {
   id: string;
   file: File;
 };
-
+type StoredFileMetadata = {
+  name: string;
+  path: string;
+  size: number;
+  type: string;
+};
 type EvidenceKey =
   | "teacherSurvey"
   | "parentSurvey"
@@ -27,6 +34,34 @@ type EvidenceKey =
 
 type EvidenceFiles = Record<EvidenceKey, SelectedFile[]>;
 type EvidenceText = Record<EvidenceKey, string>;
+type SavedEvidenceFiles = Record<EvidenceKey, StoredFileMetadata[]>;
+
+type SavedSourceInput = {
+  primaryText?: string;
+
+  evidenceText?: Partial<EvidenceText>;
+
+  files?: {
+    primary?: StoredFileMetadata | null;
+    teacherSurvey?: StoredFileMetadata[];
+    parentSurvey?: StoredFileMetadata[];
+    studentSurvey?: StoredFileMetadata[];
+    combinedSurvey?: StoredFileMetadata[];
+    caseManagerNotes?: StoredFileMetadata[];
+    fieEvaluation?: StoredFileMetadata[];
+    progressData?: StoredFileMetadata[];
+  };
+
+  metadata?: {
+    auditName?: string;
+    studentIdentifier?: string;
+    gradeLevel?: string | null;
+    auditType?: string;
+  };
+
+  expectedTeacherSurveyCount?: number;
+  completedTeacherSurveyCount?: number;
+};
 type EvidenceDragging = Record<EvidenceKey, boolean>;
 type AccordionState = Record<EvidenceKey, boolean>;
 
@@ -139,7 +174,15 @@ const initialEvidenceFiles: EvidenceFiles = {
   fieEvaluation: [],
   progressData: [],
 };
-
+const initialSavedEvidenceFiles: SavedEvidenceFiles = {
+  teacherSurvey: [],
+  parentSurvey: [],
+  studentSurvey: [],
+  combinedSurvey: [],
+  caseManagerNotes: [],
+  fieEvaluation: [],
+  progressData: [],
+};
 const initialEvidenceText: EvidenceText = {
   teacherSurvey: "",
   parentSurvey: "",
@@ -203,9 +246,23 @@ function validateFile(file: File) {
   return "";
 }
 
-export default function UploadIEPPage() {
+function UploadIEPContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+const existingAuditId = searchParams.get("auditId");
 
+const formRef = useRef<HTMLFormElement | null>(null);
+const submitModeRef = useRef<"draft" | "process">("process");
+
+const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
+  const [savedPrimaryDocument, setSavedPrimaryDocument] =
+  useState<StoredFileMetadata | null>(null);
+
+const [savedEvidenceFiles, setSavedEvidenceFiles] =
+  useState<SavedEvidenceFiles>(initialSavedEvidenceFiles);
+
+const [isLoadingDraft, setIsLoadingDraft] =
+  useState(Boolean(existingAuditId));
   const primaryInputRef = useRef<HTMLInputElement | null>(null);
 
   const evidenceInputRefs = useRef<
@@ -240,11 +297,166 @@ export default function UploadIEPPage() {
   const [completedTeacherSurveyCount, setCompletedTeacherSurveyCount] =
     useState(0);
 
-  const [errorMessage, setErrorMessage] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const [errorMessage, setErrorMessage] = useState("");
+const [statusMessage, setStatusMessage] = useState("");
+const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function clearMessages() {
+useEffect(() => {
+  if (!existingAuditId) {
+    setIsLoadingDraft(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  async function loadSavedDraft() {
+    setIsLoadingDraft(true);
+    setErrorMessage("");
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("Your session has expired. Please sign in again.");
+      }
+
+      const { data: audit, error: auditError } = await supabase
+        .from("audits")
+        .select(
+          `
+          id,
+          audit_name,
+          student_identifier,
+          grade_level,
+          audit_type,
+          expected_teacher_survey_count,
+          completed_teacher_survey_count,
+          source_input
+          `
+        )
+        .eq("id", existingAuditId)
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (auditError) {
+        throw new Error(auditError.message);
+      }
+
+      if (!audit) {
+        throw new Error("Saved audit draft was not found.");
+      }
+
+      const sourceInput =
+        (audit.source_input as SavedSourceInput | null) ?? {};
+
+      setAuditName(
+        sourceInput.metadata?.auditName ??
+          audit.audit_name ??
+          ""
+      );
+
+      setStudentIdentifier(
+        sourceInput.metadata?.studentIdentifier ??
+          audit.student_identifier ??
+          ""
+      );
+
+      setGradeLevel(
+        sourceInput.metadata?.gradeLevel ??
+          audit.grade_level ??
+          ""
+      );
+
+      setAuditType(
+        sourceInput.metadata?.auditType ??
+          audit.audit_type ??
+          auditTypes[0]
+      );
+
+      setPrimaryText(sourceInput.primaryText ?? "");
+
+      setEvidenceText({
+        teacherSurvey:
+          sourceInput.evidenceText?.teacherSurvey ?? "",
+        parentSurvey:
+          sourceInput.evidenceText?.parentSurvey ?? "",
+        studentSurvey:
+          sourceInput.evidenceText?.studentSurvey ?? "",
+        combinedSurvey:
+          sourceInput.evidenceText?.combinedSurvey ?? "",
+        caseManagerNotes:
+          sourceInput.evidenceText?.caseManagerNotes ?? "",
+        fieEvaluation:
+          sourceInput.evidenceText?.fieEvaluation ?? "",
+        progressData:
+          sourceInput.evidenceText?.progressData ?? "",
+      });
+
+      setSavedPrimaryDocument(
+        sourceInput.files?.primary ?? null
+      );
+
+      setSavedEvidenceFiles({
+        teacherSurvey:
+          sourceInput.files?.teacherSurvey ?? [],
+        parentSurvey:
+          sourceInput.files?.parentSurvey ?? [],
+        studentSurvey:
+          sourceInput.files?.studentSurvey ?? [],
+        combinedSurvey:
+          sourceInput.files?.combinedSurvey ?? [],
+        caseManagerNotes:
+          sourceInput.files?.caseManagerNotes ?? [],
+        fieEvaluation:
+          sourceInput.files?.fieEvaluation ?? [],
+        progressData:
+          sourceInput.files?.progressData ?? [],
+      });
+
+      setExpectedTeacherSurveyCount(
+        sourceInput.expectedTeacherSurveyCount ??
+          audit.expected_teacher_survey_count ??
+          0
+      );
+
+      setCompletedTeacherSurveyCount(
+        sourceInput.completedTeacherSurveyCount ??
+          audit.completed_teacher_survey_count ??
+          0
+      );
+
+      setSavedAuditId(audit.id);
+      setStatusMessage("Draft loaded.");
+    } catch (error) {
+      if (cancelled) return;
+
+      console.error("Draft load error:", error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load the saved draft."
+      );
+    } finally {
+      if (!cancelled) {
+        setIsLoadingDraft(false);
+      }
+    }
+  }
+
+  loadSavedDraft();
+
+  return () => {
+    cancelled = true;
+  };
+}, [existingAuditId]);
+
+function clearMessages() {
     setErrorMessage("");
     setStatusMessage("");
   }
@@ -360,14 +572,18 @@ export default function UploadIEPPage() {
     clearMessages();
   }
 
-  function hasEvidenceContent(key: EvidenceKey) {
-    return (
-      evidenceFiles[key].length > 0 || evidenceText[key].trim().length > 0
-    );
-  }
+function hasEvidenceContent(key: EvidenceKey) {
+  return (
+    evidenceFiles[key].length > 0 ||
+    savedEvidenceFiles[key].length > 0 ||
+    evidenceText[key].trim().length > 0
+  );
+}
 
-  function getEvidenceSummary(key: EvidenceKey) {
-    const fileCount = evidenceFiles[key].length;
+function getEvidenceSummary(key: EvidenceKey) {
+  const fileCount =
+    evidenceFiles[key].length +
+    savedEvidenceFiles[key].length;
     const hasText = evidenceText[key].trim().length > 0;
 
     if (fileCount > 0 && hasText) {
@@ -384,10 +600,99 @@ export default function UploadIEPPage() {
 
     return "No evidence added";
   }
+async function updateSavedDraft() {
+  if (!savedAuditId) return;
 
+  setIsSubmitting(true);
+  setErrorMessage("");
+  setStatusMessage("Saving draft...");
+
+  try {
+    const { data: existingAudit, error: loadError } = await supabase
+      .from("audits")
+      .select("source_input")
+      .eq("id", savedAuditId)
+      .single();
+
+    if (loadError) {
+      throw new Error(loadError.message);
+    }
+
+    const existingSourceInput =
+      (existingAudit?.source_input as SavedSourceInput | null) ?? {};
+
+    const updatedSourceInput = {
+      ...existingSourceInput,
+
+      primaryText: primaryText.trim(),
+
+      evidenceText: {
+        ...(existingSourceInput.evidenceText ?? {}),
+        ...evidenceText,
+      },
+
+      metadata: {
+        auditName: auditName.trim(),
+        studentIdentifier: studentIdentifier.trim(),
+        gradeLevel: gradeLevel.trim() || null,
+        auditType,
+      },
+
+      expectedTeacherSurveyCount,
+      completedTeacherSurveyCount,
+    };
+
+    const { error: updateError } = await supabase
+      .from("audits")
+      .update({
+        audit_name: auditName.trim(),
+        student_identifier: studentIdentifier.trim(),
+        grade_level: gradeLevel.trim() || null,
+        audit_type: auditType,
+
+        expected_teacher_survey_count: expectedTeacherSurveyCount,
+        completed_teacher_survey_count: completedTeacherSurveyCount,
+
+        source_input: updatedSourceInput,
+
+        updated_at: new Date().toISOString(),
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq("id", savedAuditId);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    setStatusMessage("Draft saved successfully.");
+  } catch (error) {
+    console.error("Draft update error:", error);
+
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Unable to update the draft."
+    );
+
+    setStatusMessage("");
+  } finally {
+    setIsSubmitting(false);
+  }
+}
 async function handleSubmit(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
+if (savedAuditId) {
+  if (submitModeRef.current === "draft") {
+    setErrorMessage("");
+    setStatusMessage("Draft already saved.");
+    return;
+  }
 
+  router.push(
+    `/dashboard/new/process?auditId=${encodeURIComponent(savedAuditId)}`
+  );
+  return;
+}
   if (!auditName.trim()) {
     setErrorMessage("Enter an audit name.");
     return;
@@ -681,11 +986,22 @@ files: {
       );
     }
 
-    setStatusMessage("Documents uploaded. Preparing audit...");
+if (submitModeRef.current === "draft") {
+  setSavedAuditId(auditId);
+  setStatusMessage("Draft saved successfully.");
 
-    router.push(
-      `/dashboard/new/process?auditId=${encodeURIComponent(auditId)}`
-    );
+  router.replace(
+    `/dashboard/new/upload?auditId=${encodeURIComponent(auditId)}`
+  );
+
+  return;
+}
+
+setStatusMessage("Documents uploaded. Preparing audit...");
+
+router.push(
+  `/dashboard/new/process?auditId=${encodeURIComponent(auditId)}`
+);
   } catch (error) {
     console.error("Audit upload workflow error:", error);
 
@@ -763,7 +1079,11 @@ files: {
         </div>
       </section>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form
+  ref={formRef}
+  onSubmit={handleSubmit}
+  className="space-y-6"
+>
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div>
             <h2 className="text-xl font-semibold text-slate-950">
@@ -876,7 +1196,7 @@ files: {
             className="hidden"
           />
 
-          {primaryFile ? (
+          {primaryFile || savedPrimaryDocument ? (
             <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-emerald-700 shadow-sm">
@@ -885,11 +1205,16 @@ files: {
 
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-900">
-                    {primaryFile.file.name}
+                    {primaryFile?.file.name ?? savedPrimaryDocument?.name}
                   </p>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    {formatFileSize(primaryFile.file.size)} · Ready to process
+                    {formatFileSize(
+  primaryFile?.file.size ??
+    savedPrimaryDocument?.size ??
+    0
+)}{" "}
+· {primaryFile ? "Ready to process" : "Saved to draft"}
                   </p>
                 </div>
               </div>
@@ -1057,6 +1382,7 @@ files: {
           <div className="mt-7 space-y-4">
             {evidenceDefinitions.map((definition) => {
               const selectedFiles = evidenceFiles[definition.key];
+              const savedFiles = savedEvidenceFiles[definition.key];
               const isDragging = evidenceDragging[definition.key];
               const isOpen = accordionState[definition.key];
               const hasContent = hasEvidenceContent(definition.key);
@@ -1209,7 +1535,30 @@ files: {
                               Multiple PDF or DOCX files
                             </p>
                           </div>
+{savedFiles.length > 0 ? (
+  <div className="mt-4 space-y-3">
+    {savedFiles.map((savedFile) => (
+      <div
+        key={savedFile.path}
+        className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {savedFile.name}
+          </p>
 
+          <p className="mt-1 text-xs text-slate-500">
+            {formatFileSize(savedFile.size)} · Saved to draft
+          </p>
+        </div>
+
+        <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
+          Saved
+        </span>
+      </div>
+    ))}
+  </div>
+) : null}
                           {selectedFiles.length > 0 ? (
                             <div className="mt-4 space-y-3">
                               {selectedFiles.map((selectedFile) => (
@@ -1322,28 +1671,61 @@ files: {
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
-              type="button"
-              onClick={() => {
-                setErrorMessage("");
-                setStatusMessage(
-                  "Draft saving will be enabled when Supabase is connected."
-                );
-              }}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Save Draft
-            </button>
+  type="button"
+  disabled={isSubmitting || isLoadingDraft}
+onClick={() => {
+  if (savedAuditId) {
+    updateSavedDraft();
+    return;
+  }
 
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200"
-            >
-              Process Documents
-              <span aria-hidden="true">→</span>
-            </button>
+  submitModeRef.current = "draft";
+  formRef.current?.requestSubmit();
+}}
+  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  {isSubmitting && submitModeRef.current === "draft"
+    ? "Saving..."
+    : "Save Draft"}
+</button>
+
+<button
+  type="button"
+  disabled={isSubmitting || isLoadingDraft}
+  onClick={() => {
+    if (savedAuditId) {
+      router.push(
+        `/dashboard/new/process?auditId=${encodeURIComponent(savedAuditId)}`
+      );
+      return;
+    }
+
+    submitModeRef.current = "process";
+    formRef.current?.requestSubmit();
+  }}
+  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  {isSubmitting && submitModeRef.current === "process"
+    ? "Saving..."
+    : "Process Documents"}
+  <span aria-hidden="true">→</span>
+</button>
           </div>
         </section>
       </form>
     </div>
+  );
+}
+export default function UploadIEPPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl p-8 text-sm text-slate-500">
+          Loading audit...
+        </div>
+      }
+    >
+      <UploadIEPContent />
+    </Suspense>
   );
 }

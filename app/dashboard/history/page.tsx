@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useMemo, useState } from "react";
 
 type AuditStatus =
   | "Verified"
@@ -56,7 +57,7 @@ type SortOption =
   | "Lowest score"
   | "Student identifier";
 
-const sampleAudits: AuditRecord[] = [
+const audits: AuditRecord[] = [
   {
     id: "audit-001",
     studentIdentifier: "J.R.",
@@ -242,6 +243,8 @@ function matchesScoreFilter(score: number | null, filter: ScoreFilter) {
 }
 
 export default function AuditHistoryPage() {
+    const [audits, setAudits] = useState<AuditRecord[]>([]);
+  const [auditsLoading, setAuditsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter>("All statuses");
@@ -253,7 +256,94 @@ export default function AuditHistoryPage() {
     useState<SortOption>("Most recently updated");
   const [message, setMessage] = useState("");
 
-  const completedAudits = sampleAudits.filter(
+    useEffect(() => {
+    async function loadAudits() {
+      setAuditsLoading(true);
+
+      const { data, error } = await supabase
+        .from("audits")
+        .select(
+          `
+            id,
+            audit_name,
+            student_identifier,
+            status,
+            overall_score,
+            evidence_readiness_score,
+            documentation_alignment_score,
+            critical_gaps,
+            created_at,
+            updated_at,
+            completed_at
+          `
+        )
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        console.error("Audit history load error:", error);
+        setAudits([]);
+        setAuditsLoading(false);
+        return;
+      }
+
+      const mappedAudits: AuditRecord[] = (data ?? []).map((audit) => {
+        let mappedStatus: AuditStatus = "Draft";
+
+        if (audit.status === "ready_for_review") {
+          mappedStatus = "Ready for Review";
+        } else if (
+          audit.status === "needs_review" ||
+          audit.status === "review_with_caution"
+        ) {
+          mappedStatus = "Needs Review";
+        } else if (
+          audit.status === "not_ready" ||
+          audit.status === "not_ready_for_review"
+        ) {
+          mappedStatus = "Not Ready";
+        } else if (audit.status === "verified") {
+          mappedStatus = "Verified";
+        } else if (
+          audit.completed_at ||
+          typeof audit.overall_score === "number"
+        ) {
+          mappedStatus = "Ready for Review";
+        }
+
+        const updatedDate =
+          audit.updated_at ?? audit.created_at ?? new Date().toISOString();
+
+        return {
+          id: audit.id,
+          studentIdentifier:
+            audit.student_identifier || "—",
+          auditName:
+            audit.audit_name || "IEP Audit",
+          auditType: "Annual IEP Review",
+          campus: "Not specified",
+          score: audit.overall_score,
+          evidenceReadiness:
+            audit.evidence_readiness_score,
+          alignmentScore:
+            audit.documentation_alignment_score,
+          status: mappedStatus,
+          updatedAt: updatedDate,
+          updatedLabel: new Date(updatedDate).toLocaleString(),
+          createdBy: "IEP Verify User",
+          hasCriticalGaps:
+            Array.isArray(audit.critical_gaps) &&
+            audit.critical_gaps.length > 0,
+        };
+      });
+
+      setAudits(mappedAudits);
+      setAuditsLoading(false);
+    }
+
+    loadAudits();
+  }, []);
+
+  const completedAudits = audits.filter(
     (audit) => audit.status !== "Draft"
   );
 
@@ -267,25 +357,25 @@ export default function AuditHistoryPage() {
         )
       : 0;
 
-  const needsAttentionCount = sampleAudits.filter(
+  const needsAttentionCount = audits.filter(
     (audit) =>
       audit.status === "Needs Review" ||
       audit.status === "Not Ready" ||
       audit.hasCriticalGaps
   ).length;
 
-  const verifiedCount = sampleAudits.filter(
+  const verifiedCount = audits.filter(
     (audit) => audit.status === "Verified"
   ).length;
 
-  const draftCount = sampleAudits.filter(
+  const draftCount = audits.filter(
     (audit) => audit.status === "Draft"
   ).length;
 
   const filteredAudits = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    const filtered = sampleAudits.filter((audit) => {
+    const filtered = audits.filter((audit) => {
       const matchesSearch =
         normalizedSearch.length === 0 ||
         audit.studentIdentifier.toLowerCase().includes(normalizedSearch) ||
@@ -340,13 +430,14 @@ export default function AuditHistoryPage() {
           );
       }
     });
-  }, [
-    searchTerm,
-    statusFilter,
-    auditTypeFilter,
-    scoreFilter,
-    sortOption,
-  ]);
+}, [
+  audits,
+  searchTerm,
+  statusFilter,
+  auditTypeFilter,
+  scoreFilter,
+  sortOption,
+]);
 
   function clearFilters() {
     setSearchTerm("");
@@ -412,7 +503,7 @@ export default function AuditHistoryPage() {
               </p>
 
               <p className="mt-2 text-3xl font-semibold text-slate-950">
-                {sampleAudits.length}
+                {audits.length}
               </p>
             </div>
 
@@ -636,12 +727,12 @@ export default function AuditHistoryPage() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Showing {filteredAudits.length} of {sampleAudits.length} audits
+              Showing {filteredAudits.length} of {audits.length} audits
             </p>
           </div>
 
           <p className="text-xs font-medium text-slate-400">
-            Sample records shown until Supabase is connected
+            {auditsLoading ? "Loading saved audits..." : "Live saved audit records"}
           </p>
         </div>
 
@@ -758,7 +849,7 @@ export default function AuditHistoryPage() {
                         <div className="flex justify-end gap-2">
                           {audit.status === "Draft" ? (
                             <Link
-                              href="/dashboard/new/audit"
+                              href={`/dashboard/new/audit?auditId=${audit.id}`}
                               className="inline-flex items-center justify-center rounded-xl bg-[#0a3d73] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#07325f]"
                             >
                               Resume
@@ -866,7 +957,7 @@ export default function AuditHistoryPage() {
                   <div className="mt-5 grid gap-2 sm:grid-cols-3">
                     {audit.status === "Draft" ? (
                       <Link
-                        href="/dashboard/new/audit"
+                        href={`/dashboard/new/audit?auditId=${audit.id}`}
                         className="inline-flex items-center justify-center rounded-xl bg-[#0a3d73] px-4 py-3 text-xs font-semibold text-white transition hover:bg-[#07325f]"
                       >
                         Resume

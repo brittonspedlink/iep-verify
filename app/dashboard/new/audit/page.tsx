@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ChangeEvent, Fragment } from "react";
+import {
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  Fragment,
+} from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type FormState = {
@@ -112,11 +119,13 @@ function fieldLabel(key: TextFieldKey) {
   return fieldDefinitions.find((field) => field.key === key)?.label ?? key;
 }
 
-export default function ReviewAndRunAuditPage() {
+function ReviewAndRunAuditContent() {
   const searchParams = useSearchParams();
   const auditId = searchParams.get("auditId");
 
   const [formData, setFormData] = useState<FormState>(initialState);
+  const [auditName, setAuditName] = useState("");
+const [studentIdentifier, setStudentIdentifier] = useState("");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [validationError, setValidationError] = useState("");
   const [auditError, setAuditError] = useState("");
@@ -151,7 +160,7 @@ export default function ReviewAndRunAuditPage() {
   async function loadAudit() {
     const { data: audit, error } = await supabase
       .from("audits")
-      .select("id, source_input")
+      .select("id, audit_name, student_identifier, source_input")
       .eq("id", auditId)
       .single();
 
@@ -164,6 +173,10 @@ export default function ReviewAndRunAuditPage() {
       setAuditError("Unable to load the saved audit.");
       return;
     }
+setAuditName(audit.audit_name ?? "");
+setStudentIdentifier(audit.student_identifier ?? "");
+console.log("RESUME AUDIT:", audit);
+console.log("RESUME SOURCE INPUT:", audit.source_input);
 
 const reviewedSections = audit.source_input?.reviewed?.sections;
 const evidenceText = audit.source_input?.evidenceText;
@@ -258,8 +271,39 @@ completedTeacherSurveyCount:
 
       if (!response.ok) throw new Error(data?.error || "Unable to complete audit request.");
 
-      setAuditResult(data as AuditResult);
-      setAuditMessage(`Audit completed with ${auditPayloadFields.filter((key) => formData[key].trim()).length} sections populated for review and alignment.`);
+const completedResult = data as AuditResult;
+
+if (!auditId) {
+  throw new Error("Audit ID is missing.");
+}
+
+const saveResponse = await fetch("/api/audits", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    auditId,
+    result: completedResult,
+  }),
+});
+
+const saveData = await saveResponse.json();
+
+if (!saveResponse.ok) {
+  console.error("Audit save response:", saveData);
+  throw new Error(
+    saveData?.error || "Audit completed but could not be saved."
+  );
+}
+
+setAuditResult(completedResult);
+
+setAuditMessage(
+  `Audit completed with ${
+    auditPayloadFields.filter((key) => formData[key].trim()).length
+  } sections populated for review and alignment.`
+);
     } catch (error) {
       setAuditResult(null);
       setAuditError(error instanceof Error ? error.message : "Unable to complete audit request.");
@@ -421,6 +465,22 @@ return (
         <div className="mt-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Review &amp; Run Audit</h1>
+{auditName || studentIdentifier ? (
+  <p className="mt-2 text-sm text-slate-500">
+    {studentIdentifier ? (
+      <>
+        Student:{" "}
+        <span className="font-bold text-slate-700">
+          {studentIdentifier}
+        </span>
+      </>
+    ) : null}
+
+    {studentIdentifier && auditName ? " · " : ""}
+
+    {auditName}
+  </p>
+) : null}
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">Confirm the supporting evidence and final IEP sections, then run the evidence-alignment audit.</p>
           </div>
           <button type="button" onClick={handleRunAudit} disabled={isAuditing} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-70">{isAuditing ? "Running audit..." : "Run Evidence Audit"}<span aria-hidden="true">→</span></button>
@@ -774,5 +834,18 @@ return (
           </section>
         ) : null}
     </div>
+  );
+}
+export default function ReviewAndRunAuditPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl p-8 text-sm text-slate-500">
+          Loading audit...
+        </div>
+      }
+    >
+      <ReviewAndRunAuditContent />
+    </Suspense>
   );
 }

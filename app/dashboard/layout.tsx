@@ -18,11 +18,11 @@ const primaryNavigation = [
     href: "/dashboard/new",
     icon: "+",
   },
-  {
-    label: "Audit History",
-    href: "/dashboard/audits",
-    icon: "✓",
-  },
+{
+  label: "Audit History",
+  href: "/dashboard/history",
+  icon: "✓",
+},
 ];
 
 export default function DashboardLayout({

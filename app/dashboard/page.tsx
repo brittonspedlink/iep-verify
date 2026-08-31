@@ -657,91 +657,68 @@ export default function DashboardPage() {
         })}
       </section>
 
-      <section>
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold text-slate-950">
-            Quick Actions
-          </h2>
+<section>
+  <div className="mb-4">
+    <h2 className="text-xl font-semibold text-slate-950">
+      Quick Actions
+    </h2>
 
-          <p className="mt-1 text-sm text-slate-600">
-            Start from the workflow that best matches the documents you have.
-          </p>
-        </div>
+    <p className="mt-1 text-sm text-slate-600">
+      Start a new review or continue an unfinished audit.
+    </p>
+  </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Link
-            href="/dashboard/new/upload"
-            className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-xl font-semibold text-[#0a3d73]">
-              ↑
-            </div>
+  <div className="grid gap-4 lg:grid-cols-2">
+    <Link
+      href="/dashboard/new"
+      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-xl font-semibold text-[#0a3d73]">
+        ↑
+      </div>
 
-            <h3 className="mt-5 text-lg font-semibold text-slate-950">
-              Upload Full IEP
-            </h3>
+      <h3 className="mt-5 text-lg font-semibold text-slate-950">
+        Start IEP Review
+      </h3>
 
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Upload a PDF or DOCX and prepare the document for section review.
-            </p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Upload a PDF or DOCX, or paste the complete IEP text to begin an
+        evidence-alignment review.
+      </p>
 
-            <p className="mt-5 text-sm font-semibold text-[#0a3d73]">
-              Start upload
-              <span className="ml-2 transition group-hover:translate-x-1">
-                →
-              </span>
-            </p>
-          </Link>
+      <p className="mt-5 text-sm font-semibold text-[#0a3d73]">
+        Start review
+        <span className="ml-2 transition group-hover:translate-x-1">
+          →
+        </span>
+      </p>
+    </Link>
 
-          <Link
-            href="/dashboard/new/paste"
-            className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-xl font-semibold text-emerald-700">
-              ≡
-            </div>
+    <Link
+      href="/dashboard/audits"
+      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl font-semibold text-slate-700">
+        ↻
+      </div>
 
-            <h3 className="mt-5 text-lg font-semibold text-slate-950">
-              Paste IEP Sections
-            </h3>
+      <h3 className="mt-5 text-lg font-semibold text-slate-950">
+        Continue a Draft
+      </h3>
 
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Paste source evidence and IEP sections into a guided review flow.
-            </p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Return to an unfinished audit and continue where you left off.
+      </p>
 
-            <p className="mt-5 text-sm font-semibold text-emerald-700">
-              Open paste workflow
-              <span className="ml-2 transition group-hover:translate-x-1">
-                →
-              </span>
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/audits"
-            className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl font-semibold text-slate-700">
-              ↻
-            </div>
-
-            <h3 className="mt-5 text-lg font-semibold text-slate-950">
-              Continue a Draft
-            </h3>
-
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Return to an unfinished audit and continue where you left off.
-            </p>
-
-            <p className="mt-5 text-sm font-semibold text-slate-700">
-              View drafts
-              <span className="ml-2 transition group-hover:translate-x-1">
-                →
-              </span>
-            </p>
-          </Link>
-        </div>
-      </section>
+      <p className="mt-5 text-sm font-semibold text-slate-700">
+        View drafts
+        <span className="ml-2 transition group-hover:translate-x-1">
+          →
+        </span>
+      </p>
+    </Link>
+  </div>
+</section>
 
       <section className="grid gap-6 xl:grid-cols-[1.65fr_0.85fr]">
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

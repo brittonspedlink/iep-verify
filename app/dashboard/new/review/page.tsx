@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type SectionKey =
@@ -43,26 +43,17 @@ const sectionDefinitions: SectionDefinition[] = [
     placeholder:
       "Student identifier, grade level, campus, review type, and other basic information.",
   },
-  {
-    key: "eligibility",
-    title: "Eligibility",
-    description:
-      "Review the eligibility or disability information explicitly stated in the document.",
-    source: "Detected from eligibility and evaluation references",
-    required: false,
-    placeholder:
-      "Paste or edit eligibility information exactly as supported by the uploaded document.",
-  },
-  {
-    key: "fieSummary",
-    title: "FIE Summary",
-    description:
-      "Confirm the evaluation summary that should inform the present levels and related documentation.",
-    source: "Detected from FIE or evaluation information",
-    required: true,
-    placeholder:
-      "Paste or edit the FIE summary or relevant evaluation narrative.",
-  },
+  
+{
+  key: "fieSummary",
+  title: "FIE / Eligibility / Evaluation",
+  description:
+    "Confirm the evaluation summary and eligibility information that should inform the PLAAFP and related documentation.",
+  source: "Detected from FIE, evaluation, and eligibility information",
+  required: true,
+  placeholder:
+    "Paste or edit the FIE or evaluation information supported by the document.",
+},
   {
     key: "plaafp",
     title: "PLAAFP",
@@ -219,7 +210,7 @@ type StoredDetectedSection = {
   text: string;
 };
 
-export default function ReviewExtractedSectionsPage() {
+function ReviewExtractedSectionsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auditId = searchParams.get("auditId");
@@ -292,9 +283,11 @@ setSections(
       `Audit Type: ${audit.audit_type ?? ""}`,
     ].join("\n"),
 
-    eligibility: "",
+    eligibility: getDetectedText("eligibility"),
 
-    fieSummary: getDetectedText("fie_summary"),
+    fieSummary:
+  getDetectedText("fie_summary") ||
+  getDetectedText("eligibility"),
     plaafp: getDetectedText("plaafp"),
     vision: getDetectedText("vision"),
     goals: getDetectedText("annual_goals"),
@@ -315,7 +308,10 @@ if (savedAbsent) {
     setExpanded((current) => ({
       ...current,
       studentInformation: true,
-      fieSummary: Boolean(getDetectedText("fie_summary")),
+      fieSummary: Boolean(
+  getDetectedText("fie_summary") ||
+  getDetectedText("eligibility")
+),
       plaafp: Boolean(getDetectedText("plaafp")),
       vision: Boolean(getDetectedText("vision")),
       goals: Boolean(getDetectedText("annual_goals")),
@@ -513,7 +509,11 @@ router.push(
     <div className="mx-auto max-w-6xl space-y-8">
       <section>
         <Link
-          href="/dashboard/new/process"
+          href={
+  auditId
+    ? `/dashboard/new/process?auditId=${encodeURIComponent(auditId)}`
+    : "/dashboard/new/process"
+}
           className="inline-flex items-center gap-2 text-sm font-semibold text-[#0a3d73] hover:underline"
         >
           <span aria-hidden="true">←</span>
@@ -833,7 +833,11 @@ router.push(
 
       <section className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <Link
-          href="/dashboard/new/process"
+          href={
+  auditId
+    ? `/dashboard/new/process?auditId=${encodeURIComponent(auditId)}`
+    : "/dashboard/new/process"
+}
           className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           Back to Processing
@@ -869,5 +873,18 @@ router.push(
         </div>
       </section>
     </div>
+  );
+}
+export default function ReviewExtractedSectionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl p-8 text-sm text-slate-500">
+          Loading audit...
+        </div>
+      }
+    >
+      <ReviewExtractedSectionsContent />
+    </Suspense>
   );
 }

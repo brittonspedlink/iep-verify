@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type DateRange = "30 days" | "90 days" | "School year";
 
@@ -191,6 +192,57 @@ export default function AnalyticsOverviewPage() {
   const [dateRange, setDateRange] = useState<DateRange>("School year");
   const [message, setMessage] = useState("");
 
+  const [totalAudits, setTotalAudits] = useState(0);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [averageScore, setAverageScore] = useState<number | null>(null);
+  useEffect(() => {
+
+  async function loadAnalytics() {
+    setAnalyticsLoading(true);
+
+const { data, count, error } = await supabase
+  .from("audits")
+  .select(
+    `
+      id,
+      overall_score
+    `,
+    {
+      count: "exact",
+    }
+  );
+    if (error) {
+      console.error("Analytics load error:", error);
+      setTotalAudits(0);
+      setAverageScore(null);
+      setAnalyticsLoading(false);
+      return;
+    }
+
+    setTotalAudits(count ?? 0);
+
+const scores = (data ?? [])
+  .map((audit) => audit.overall_score)
+  .filter(
+    (score): score is number =>
+      typeof score === "number"
+  );
+
+    if (scores.length === 0) {
+      setAverageScore(null);
+    } else {
+      const average =
+        scores.reduce((sum, score) => sum + score, 0) /
+        scores.length;
+
+      setAverageScore(Math.round(average));
+    }
+
+    setAnalyticsLoading(false);
+  }
+
+  loadAnalytics();
+}, []);
   const activeTrend = trendData[dateRange];
 
   const chartPoints = useMemo(
@@ -202,8 +254,8 @@ export default function AnalyticsOverviewPage() {
     .map((point) => `${point.x},${point.y}`)
     .join(" ");
 
-  const totalAudits = 443;
-  const averageScore = 91;
+  
+  
   const readyRate = 83;
   const needsReviewRate = 13;
   const criticalRate = 4;
@@ -323,7 +375,7 @@ export default function AnalyticsOverviewPage() {
           <p className="text-sm font-medium text-slate-500">Total Audits</p>
 
           <p className="mt-3 text-4xl font-semibold tracking-tight text-[#0a3d73]">
-            {totalAudits}
+            {analyticsLoading ? "—" : totalAudits}
           </p>
 
           <p className="mt-4 text-xs leading-5 text-slate-500">
@@ -335,7 +387,11 @@ export default function AnalyticsOverviewPage() {
           <p className="text-sm font-medium text-slate-500">Average Score</p>
 
           <p className="mt-3 text-4xl font-semibold tracking-tight text-emerald-700">
-            {averageScore}
+            {analyticsLoading
+  ? "—"
+  : averageScore === null
+    ? "—"
+    : averageScore}
           </p>
 
           <p className="mt-4 text-xs leading-5 text-slate-500">
