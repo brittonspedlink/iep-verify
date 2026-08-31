@@ -150,17 +150,6 @@ export default function DashboardLayout({
             </div>
 
             <Link
-              href="/dashboard/settings"
-              className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-blue-100 transition hover:bg-white/10 hover:text-white"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10">
-                ⚙
-              </span>
-
-              <span>Settings</span>
-            </Link>
-
-            <Link
               href="/dashboard/help"
               className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-blue-100 transition hover:bg-white/10 hover:text-white"
             >
