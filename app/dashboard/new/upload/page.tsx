@@ -600,7 +600,41 @@ function getEvidenceSummary(key: EvidenceKey) {
 
     return "No evidence added";
   }
-async function updateSavedDraft() {
+  async function uploadAuditFile(
+  file: File,
+  userId: string,
+  auditId: string,
+  folder: string
+): Promise<StoredFileMetadata> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+  const storagePath =
+    `${userId}/${auditId}/${folder}/${crypto.randomUUID()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("audit-documents")
+    .upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+  if (uploadError) {
+    console.error("Document upload error:", uploadError);
+
+    throw new Error(
+      `Unable to upload ${file.name}: ${uploadError.message}`
+    );
+  }
+
+  return {
+    name: file.name,
+    path: storagePath,
+    size: file.size,
+    type: file.type,
+  };
+}
+async function updateSavedDraft(goToProcess = false) {
   if (!savedAuditId) return;
 
   setIsSubmitting(true);
@@ -608,6 +642,15 @@ async function updateSavedDraft() {
   setStatusMessage("Saving draft...");
 
   try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error("Your session has expired. Please sign in again.");
+    }
+
     const { data: existingAudit, error: loadError } = await supabase
       .from("audits")
       .select("source_input")
@@ -621,6 +664,67 @@ async function updateSavedDraft() {
     const existingSourceInput =
       (existingAudit?.source_input as SavedSourceInput | null) ?? {};
 
+    let primaryDocument =
+      savedPrimaryDocument ??
+      existingSourceInput.files?.primary ??
+      null;
+
+    if (primaryFile) {
+      primaryDocument = await uploadAuditFile(
+        primaryFile.file,
+        user.id,
+        savedAuditId,
+        "primary"
+      );
+    }
+
+    const updatedSavedEvidenceFiles: SavedEvidenceFiles = {
+      teacherSurvey: [
+        ...(existingSourceInput.files?.teacherSurvey ?? []),
+      ],
+      parentSurvey: [
+        ...(existingSourceInput.files?.parentSurvey ?? []),
+      ],
+      studentSurvey: [
+        ...(existingSourceInput.files?.studentSurvey ?? []),
+      ],
+      combinedSurvey: [
+        ...(existingSourceInput.files?.combinedSurvey ?? []),
+      ],
+      caseManagerNotes: [
+        ...(existingSourceInput.files?.caseManagerNotes ?? []),
+      ],
+      fieEvaluation: [
+        ...(existingSourceInput.files?.fieEvaluation ?? []),
+      ],
+      progressData: [
+        ...(existingSourceInput.files?.progressData ?? []),
+      ],
+    };
+
+    const evidenceKeys: EvidenceKey[] = [
+      "teacherSurvey",
+      "parentSurvey",
+      "studentSurvey",
+      "combinedSurvey",
+      "caseManagerNotes",
+      "fieEvaluation",
+      "progressData",
+    ];
+
+    for (const key of evidenceKeys) {
+      for (const selectedFile of evidenceFiles[key]) {
+        const storedFile = await uploadAuditFile(
+          selectedFile.file,
+          user.id,
+          savedAuditId,
+          `evidence/${key}`
+        );
+
+        updatedSavedEvidenceFiles[key].push(storedFile);
+      }
+    }
+
     const updatedSourceInput = {
       ...existingSourceInput,
 
@@ -629,6 +733,17 @@ async function updateSavedDraft() {
       evidenceText: {
         ...(existingSourceInput.evidenceText ?? {}),
         ...evidenceText,
+      },
+
+      files: {
+        primary: primaryDocument,
+        teacherSurvey: updatedSavedEvidenceFiles.teacherSurvey,
+        parentSurvey: updatedSavedEvidenceFiles.parentSurvey,
+        studentSurvey: updatedSavedEvidenceFiles.studentSurvey,
+        combinedSurvey: updatedSavedEvidenceFiles.combinedSurvey,
+        caseManagerNotes: updatedSavedEvidenceFiles.caseManagerNotes,
+        fieEvaluation: updatedSavedEvidenceFiles.fieEvaluation,
+        progressData: updatedSavedEvidenceFiles.progressData,
       },
 
       metadata: {
@@ -664,7 +779,18 @@ async function updateSavedDraft() {
       throw new Error(updateError.message);
     }
 
+    setSavedPrimaryDocument(primaryDocument);
+    setSavedEvidenceFiles(updatedSavedEvidenceFiles);
+
+    setPrimaryFile(null);
+    setEvidenceFiles(initialEvidenceFiles);
+
     setStatusMessage("Draft saved successfully.");
+    if (goToProcess) {
+  router.push(
+    `/dashboard/new/process?auditId=${encodeURIComponent(savedAuditId)}`
+  );
+}
   } catch (error) {
     console.error("Draft update error:", error);
 
@@ -850,53 +976,17 @@ if (auditError) {
 }
 
 
-    setStatusMessage("Uploading audit documents...");
+setSavedAuditId(auditId);
 
-    type StoredFileMetadata = {
-      name: string;
-      path: string;
-      size: number;
-      type: string;
-    };
-
-    async function uploadFile(
-      file: File,
-      folder: string
-    ): Promise<StoredFileMetadata> {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-      const storagePath =
-        `${userId}/${auditId}/${folder}/${crypto.randomUUID()}-${safeName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("audit-documents")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type || undefined,
-        });
-
-      if (uploadError) {
-        console.error("Document upload error:", uploadError);
-
-        throw new Error(
-          `Unable to upload ${file.name}: ${uploadError.message}`
-        );
-      }
-
-      return {
-        name: file.name,
-        path: storagePath,
-        size: file.size,
-        type: file.type,
-      };
-    }
+setStatusMessage("Uploading audit documents...");
 
 let primaryDocument: StoredFileMetadata | null = null;
 
 if (primaryFile) {
-  primaryDocument = await uploadFile(
+  primaryDocument = await uploadAuditFile(
     primaryFile.file,
+    userId,
+    auditId,
     "primary"
   );
 }
@@ -924,16 +1014,18 @@ const evidenceKeys: EvidenceKey[] = [
   "progressData",
 ];
 
-    for (const key of evidenceKeys) {
-      for (const selectedFile of evidenceFiles[key]) {
-        const storedFile = await uploadFile(
-          selectedFile.file,
-          `evidence/${key}`
-        );
+for (const key of evidenceKeys) {
+  for (const selectedFile of evidenceFiles[key]) {
+    const storedFile = await uploadAuditFile(
+      selectedFile.file,
+      userId,
+      auditId,
+      `evidence/${key}`
+    );
 
-        storedEvidenceFiles[key].push(storedFile);
-      }
-    }
+    storedEvidenceFiles[key].push(storedFile);
+  }
+}
 
     const finalSourceInput = {
       primaryText: primaryText.trim(),
@@ -1693,12 +1785,11 @@ onClick={() => {
   type="button"
   disabled={isSubmitting || isLoadingDraft}
   onClick={() => {
-    if (savedAuditId) {
-      router.push(
-        `/dashboard/new/process?auditId=${encodeURIComponent(savedAuditId)}`
-      );
-      return;
-    }
+if (savedAuditId) {
+  submitModeRef.current = "process";
+  updateSavedDraft(true);
+  return;
+}
 
     submitModeRef.current = "process";
     formRef.current?.requestSubmit();

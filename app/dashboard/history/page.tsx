@@ -15,7 +15,8 @@ type AuditType =
   | "Annual IEP Review"
   | "Initial IEP Review"
   | "Reevaluation Review"
-  | "Amendment Review";
+  | "Amendment Review"
+  | "Other";
 
 type AuditRecord = {
   id: string;
@@ -23,6 +24,7 @@ type AuditRecord = {
   auditName: string;
   auditType: AuditType;
   campus: string;
+  resumeHref: string;
   score: number | null;
   evidenceReadiness: number | null;
   alignmentScore: number | null;
@@ -57,7 +59,7 @@ type SortOption =
   | "Lowest score"
   | "Student identifier";
 
-const audits: AuditRecord[] = [
+const audits = [
   {
     id: "audit-001",
     studentIdentifier: "J.R.",
@@ -165,6 +167,7 @@ const auditTypeOptions: AuditTypeFilter[] = [
   "Initial IEP Review",
   "Reevaluation Review",
   "Amendment Review",
+  "Other",
 ];
 
 const scoreOptions: ScoreFilter[] = [
@@ -241,7 +244,90 @@ function matchesScoreFilter(score: number | null, filter: ScoreFilter) {
 
   return score < 80;
 }
+function getResumeHref(
+  auditId: string,
+  sourceInput: unknown
+) {
+  const source = (sourceInput ?? {}) as {
+    primaryText?: string;
 
+    evidenceText?: {
+      teacherSurvey?: string;
+      parentSurvey?: string;
+      studentSurvey?: string;
+      combinedSurvey?: string;
+    };
+
+    files?: {
+      primary?: {
+        name?: string;
+      } | null;
+
+      teacherSurvey?: unknown[];
+      parentSurvey?: unknown[];
+      studentSurvey?: unknown[];
+      combinedSurvey?: unknown[];
+    };
+
+    extracted?: {
+      primaryIep?: {
+        text?: string;
+      };
+    };
+
+    reviewed?: {
+      confirmed?: Record<string, boolean>;
+    };
+  };
+
+  const hasPrimaryDocument =
+    Boolean(source.files?.primary?.name) ||
+    Boolean(source.primaryText?.trim());
+
+  const hasSurveyEvidence =
+    Boolean(source.files?.teacherSurvey?.length) ||
+    Boolean(source.files?.parentSurvey?.length) ||
+    Boolean(source.files?.studentSurvey?.length) ||
+    Boolean(source.files?.combinedSurvey?.length) ||
+    Boolean(source.evidenceText?.teacherSurvey?.trim()) ||
+    Boolean(source.evidenceText?.parentSurvey?.trim()) ||
+    Boolean(source.evidenceText?.studentSurvey?.trim()) ||
+    Boolean(source.evidenceText?.combinedSurvey?.trim());
+
+  if (!hasPrimaryDocument || !hasSurveyEvidence) {
+    return `/dashboard/new/upload?auditId=${encodeURIComponent(
+      auditId
+    )}`;
+  }
+
+  const hasProcessedDocument = Boolean(
+    source.extracted?.primaryIep?.text?.trim()
+  );
+
+  if (!hasProcessedDocument) {
+    return `/dashboard/new/process?auditId=${encodeURIComponent(
+      auditId
+    )}`;
+  }
+
+  const confirmedSections =
+    source.reviewed?.confirmed;
+
+  const allSectionsConfirmed =
+    confirmedSections &&
+    Object.keys(confirmedSections).length > 0 &&
+    Object.values(confirmedSections).every(Boolean);
+
+  if (!allSectionsConfirmed) {
+    return `/dashboard/new/review?auditId=${encodeURIComponent(
+      auditId
+    )}`;
+  }
+
+  return `/dashboard/new/audit?auditId=${encodeURIComponent(
+    auditId
+  )}`;
+}
 export default function AuditHistoryPage() {
     const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [auditsLoading, setAuditsLoading] = useState(true);
@@ -260,24 +346,27 @@ export default function AuditHistoryPage() {
     async function loadAudits() {
       setAuditsLoading(true);
 
-      const { data, error } = await supabase
-        .from("audits")
-        .select(
-          `
-            id,
-            audit_name,
-            student_identifier,
-            status,
-            overall_score,
-            evidence_readiness_score,
-            documentation_alignment_score,
-            critical_gaps,
-            created_at,
-            updated_at,
-            completed_at
-          `
-        )
-        .order("updated_at", { ascending: false });
+const { data, error } = await supabase
+  .from("audits")
+  .select(
+    `
+      id,
+      audit_name,
+      student_identifier,
+      audit_type,
+      campus_id,
+      source_input,
+      status,
+      overall_score,
+      evidence_readiness_score,
+      documentation_alignment_score,
+      critical_gaps,
+      created_at,
+      updated_at,
+      completed_at
+    `
+  )
+  .order("updated_at", { ascending: false });
 
       if (error) {
         console.error("Audit history load error:", error);
@@ -285,7 +374,36 @@ export default function AuditHistoryPage() {
         setAuditsLoading(false);
         return;
       }
+const campusIds = Array.from(
+  new Set(
+    (data ?? [])
+      .map((audit) => audit.campus_id)
+      .filter(
+        (campusId): campusId is string =>
+          typeof campusId === "string" && campusId.length > 0
+      )
+  )
+);
 
+const campusNameById = new Map<string, string>();
+
+if (campusIds.length > 0) {
+  const { data: campusRows, error: campusError } = await supabase
+    .from("campuses")
+    .select("id, name")
+    .in("id", campusIds);
+
+  if (campusError) {
+    console.error("Campus lookup error:", campusError);
+  } else {
+    (campusRows ?? []).forEach((campus) => {
+      campusNameById.set(
+        campus.id,
+        campus.name || "Not specified"
+      );
+    });
+  }
+}
       const mappedAudits: AuditRecord[] = (data ?? []).map((audit) => {
         let mappedStatus: AuditStatus = "Draft";
 
@@ -319,8 +437,16 @@ export default function AuditHistoryPage() {
             audit.student_identifier || "—",
           auditName:
             audit.audit_name || "IEP Audit",
-          auditType: "Annual IEP Review",
-          campus: "Not specified",
+auditType:
+  (audit.audit_type as AuditType) || "Annual IEP Review",
+campus:
+  typeof audit.campus_id === "string"
+    ? campusNameById.get(audit.campus_id) ?? "Not specified"
+    : "Not specified",
+    resumeHref: getResumeHref(
+  audit.id,
+  audit.source_input
+),
           score: audit.overall_score,
           evidenceReadiness:
             audit.evidence_readiness_score,
@@ -849,7 +975,7 @@ export default function AuditHistoryPage() {
                         <div className="flex justify-end gap-2">
                           {audit.status === "Draft" ? (
                             <Link
-                              href={`/dashboard/new/audit?auditId=${audit.id}`}
+                              href={audit.resumeHref}
                               className="inline-flex items-center justify-center rounded-xl bg-[#0a3d73] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#07325f]"
                             >
                               Resume
@@ -957,7 +1083,7 @@ export default function AuditHistoryPage() {
                   <div className="mt-5 grid gap-2 sm:grid-cols-3">
                     {audit.status === "Draft" ? (
                       <Link
-                        href={`/dashboard/new/audit?auditId=${audit.id}`}
+                        href={audit.resumeHref}
                         className="inline-flex items-center justify-center rounded-xl bg-[#0a3d73] px-4 py-3 text-xs font-semibold text-white transition hover:bg-[#07325f]"
                       >
                         Resume
