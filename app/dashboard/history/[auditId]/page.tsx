@@ -63,12 +63,20 @@ function getTextList(value: unknown): string[] {
 }
 
 function formatSectionName(sectionName: string) {
-  if (sectionName.toLowerCase() === "plaafp") return "PLAAFP";
-
-  return sectionName
+  const normalized = sectionName
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+    .trim()
+    .toLowerCase();
+
+  if (normalized === "plaafp") return "PLAAFP";
+  if (normalized === "teks") return "TEKS";
+  if (normalized === "recommended teks") return "Recommended TEKS";
+  if (normalized === "fie") return "FIE";
+
+  return normalized.replace(/\b\w/g, (character) =>
+    character.toUpperCase()
+  );
 }
 
 export default async function SavedAuditPage({ params }: PageProps) {
@@ -301,14 +309,21 @@ if (error || !audit) {
         const recommendations = getTextList(review.recommendedRevisions);
         const supportedContent = getTextList(review.supportedContent);
 
-        const hasIssues =
-          findings.length > 0 ||
-          missingEvidence.length > 0 ||
-          conflicts.length > 0 ||
-          recommendations.length > 0 ||
-          (score !== null && score < 100);
+const hasIssues =
+  findings.length > 0 ||
+  missingEvidence.length > 0 ||
+  conflicts.length > 0 ||
+  recommendations.length > 0 ||
+  (score !== null && score < 100);
 
-        return (
+const issueSummary =
+  findings[0] ??
+  missingEvidence[0] ??
+  conflicts[0] ??
+  mainIssue ??
+  "This section has findings that should be reviewed.";
+
+return (
           <article
             key={sectionName}
             className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
@@ -331,11 +346,17 @@ if (error || !audit) {
                   </span>
                 ) : null}
 
-                {status ? (
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                    {formatStatus(status)}
-                  </span>
-                ) : null}
+{status ? (
+  <span
+    className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+      hasIssues
+        ? "bg-amber-50 text-amber-800 ring-amber-200"
+        : "bg-white text-slate-600 ring-slate-200"
+    }`}
+  >
+    {hasIssues ? "Review" : formatStatus(status)}
+  </span>
+) : null}
               </div>
             </div>
 
@@ -345,11 +366,9 @@ if (error || !audit) {
                   Needs Attention
                 </p>
 
-                <p className="mt-2 text-sm font-medium leading-6 text-slate-900">
-                  {mainIssue ??
-                    findings[0] ??
-                    "This section has findings that should be reviewed."}
-                </p>
+<p className="mt-2 text-sm font-medium leading-6 text-slate-900">
+  {issueSummary}
+</p>
               </div>
             ) : (
               <div className="mt-5">
