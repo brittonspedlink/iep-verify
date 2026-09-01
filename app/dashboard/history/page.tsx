@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AuditExportButton from "@/components/AuditExportButton";
 import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useMemo, useState } from "react";
 
@@ -574,12 +575,6 @@ campus:
     setMessage("");
   }
 
-  function handleExport(audit: AuditRecord) {
-    setMessage(
-      `Export for ${audit.auditName} will be connected to the saved audit report after Supabase is wired.`
-    );
-  }
-
   function handleDelete(audit: AuditRecord) {
     setMessage(
       `Delete confirmation for ${audit.auditName} will be enabled after saved audit records are connected.`
@@ -989,13 +984,11 @@ campus:
                             </Link>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() => handleExport(audit)}
-                            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                          >
-                            Export
-                          </button>
+<AuditExportButton
+  auditId={audit.id}
+  label="Export"
+  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+/>
 
                           <button
                             type="button"
@@ -1097,13 +1090,11 @@ campus:
                       </Link>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleExport(audit)}
-                      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      Export
-                    </button>
+<AuditExportButton
+  auditId={audit.id}
+  label="Export"
+  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+/>
 
                     <button
                       type="button"

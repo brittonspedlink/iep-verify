@@ -18,6 +18,7 @@ type AuditRow = {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  source_input: Record<string, unknown> | null;
   audit_results: AuditResultData | AuditResultData[] | null;
 };
 
@@ -305,7 +306,105 @@ function getStatusClasses(status: string) {
 
   return "border-slate-200 bg-slate-100 text-slate-700";
 }
+function getAuditHref(audit: AuditRow) {
+  const result = getAuditResult(audit.audit_results);
 
+  const isCompleted =
+    Boolean(audit.completed_at) ||
+    typeof result?.overall_score === "number" ||
+    [
+      "verified",
+      "ready_for_review",
+      "needs_review",
+      "review_with_caution",
+      "not_ready",
+      "not_ready_for_review",
+      "completed",
+    ].includes(normalizeStatus(audit.status));
+
+  if (isCompleted) {
+    return `/dashboard/history/${encodeURIComponent(audit.id)}`;
+  }
+
+  const source = (audit.source_input ?? {}) as {
+    primaryText?: string;
+
+    evidenceText?: {
+      teacherSurvey?: string;
+      parentSurvey?: string;
+      studentSurvey?: string;
+      combinedSurvey?: string;
+    };
+
+    files?: {
+      primary?: {
+        name?: string;
+      } | null;
+
+      teacherSurvey?: unknown[];
+      parentSurvey?: unknown[];
+      studentSurvey?: unknown[];
+      combinedSurvey?: unknown[];
+    };
+
+    extracted?: {
+      primaryIep?: {
+        text?: string;
+      };
+    };
+
+    reviewed?: {
+      confirmed?: Record<string, boolean>;
+    };
+  };
+
+  const hasPrimaryDocument =
+    Boolean(source.files?.primary?.name) ||
+    Boolean(source.primaryText?.trim());
+
+  const hasSurveyEvidence =
+    Boolean(source.files?.teacherSurvey?.length) ||
+    Boolean(source.files?.parentSurvey?.length) ||
+    Boolean(source.files?.studentSurvey?.length) ||
+    Boolean(source.files?.combinedSurvey?.length) ||
+    Boolean(source.evidenceText?.teacherSurvey?.trim()) ||
+    Boolean(source.evidenceText?.parentSurvey?.trim()) ||
+    Boolean(source.evidenceText?.studentSurvey?.trim()) ||
+    Boolean(source.evidenceText?.combinedSurvey?.trim());
+
+  if (!hasPrimaryDocument || !hasSurveyEvidence) {
+    return `/dashboard/new/upload?auditId=${encodeURIComponent(
+      audit.id
+    )}`;
+  }
+
+  const hasProcessedDocument = Boolean(
+    source.extracted?.primaryIep?.text?.trim()
+  );
+
+  if (!hasProcessedDocument) {
+    return `/dashboard/new/process?auditId=${encodeURIComponent(
+      audit.id
+    )}`;
+  }
+
+  const confirmedSections = source.reviewed?.confirmed;
+
+  const allSectionsConfirmed =
+    confirmedSections &&
+    Object.keys(confirmedSections).length > 0 &&
+    Object.values(confirmedSections).every(Boolean);
+
+  if (!allSectionsConfirmed) {
+    return `/dashboard/new/review?auditId=${encodeURIComponent(
+      audit.id
+    )}`;
+  }
+
+  return `/dashboard/new/audit?auditId=${encodeURIComponent(
+    audit.id
+  )}`;
+}
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -360,6 +459,7 @@ export default function DashboardPage() {
               created_at,
               updated_at,
               completed_at,
+              source_input,
               audit_results (
                 overall_score,
                 audit_status
@@ -777,16 +877,23 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 ) : (
-recentAudits.map((audit) => (
-  <tr
-    key={audit.id}
-    onClick={() =>
-      router.push(
-        `/dashboard/new/process?auditId=${encodeURIComponent(audit.id)}`
-      )
-    }
-    className="cursor-pointer border-t border-slate-200 transition hover:bg-slate-50"
-  >
+recentAudits.map((audit) => {
+  const sourceAudit = audits.find(
+    (item) => item.id === audit.id
+  );
+
+  return (
+    <tr
+      key={audit.id}
+      onClick={() => {
+        if (!sourceAudit) {
+          return;
+        }
+
+        router.push(getAuditHref(sourceAudit));
+      }}
+      className="cursor-pointer border-t border-slate-200 transition hover:bg-slate-50"
+    >
                       <td className="px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dce9f7] text-xs font-semibold text-[#0a3d73]">
@@ -823,7 +930,8 @@ recentAudits.map((audit) => (
                         {audit.updated}
                       </td>
                     </tr>
-                  ))
+                  );
+                })
                 )}
               </tbody>
             </table>

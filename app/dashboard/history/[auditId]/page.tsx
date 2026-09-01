@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import AuditExportButton from "@/components/AuditExportButton";
 import AuditReport from "@/components/AuditReport";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
@@ -107,7 +108,7 @@ if (error || !audit) {
   <div className="mx-auto max-w-6xl space-y-8">
     <Link
       href="/dashboard/history"
-      className="inline-flex text-sm font-semibold text-[#0a3d73] hover:underline"
+      className="inline-flex text-sm font-semibold text-[#0a3d73] hover:underline print:hidden"
     >
       ← Audit History
     </Link>
@@ -130,8 +131,13 @@ if (error || !audit) {
         documentReviews as Record<string, unknown>
       }
     />
-
-    <div className="flex flex-wrap gap-3 pb-8">
+<AuditExportButton autoPrintFromQuery />
+    <div className="flex flex-wrap gap-3 pb-8 print:hidden">
+      <AuditExportButton
+        auditId={auditId}
+        label="Export Audit"
+        className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+      />
       <Link
         href="/dashboard/history"
         className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"

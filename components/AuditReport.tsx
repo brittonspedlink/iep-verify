@@ -477,24 +477,37 @@ const issueSummary =
                       </div>
                     ) : null}
 
-                    {supportedContent.length > 0 ? (
-                      <details className="mt-5 border-t border-slate-200 pt-4">
-                        <summary className="cursor-pointer text-sm font-semibold text-[#0a3d73]">
-                          View supporting evidence
-                        </summary>
+{supportedContent.length > 0 ? (
+  <>
+    <details className="mt-5 border-t border-slate-200 pt-4 print:hidden">
+      <summary className="cursor-pointer text-sm font-semibold text-[#0a3d73]">
+        View supporting evidence
+      </summary>
 
-                        <ul className="mt-3 space-y-2 pl-5 text-sm leading-6 text-slate-600">
-                          {supportedContent.map((item) => (
-                            <li
-                              key={item}
-                              className="list-disc"
-                            >
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    ) : null}
+      <ul className="mt-3 space-y-2 pl-5 text-sm leading-6 text-slate-600">
+        {supportedContent.map((item) => (
+          <li key={item} className="list-disc">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </details>
+
+    <div className="mt-5 hidden border-t border-slate-200 pt-4 print:block">
+      <p className="text-sm font-semibold text-slate-900">
+        Supporting Evidence
+      </p>
+
+      <ul className="mt-3 space-y-2 pl-5 text-sm leading-6 text-slate-600">
+        {supportedContent.map((item) => (
+          <li key={item} className="list-disc">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </>
+) : null}
                   </article>
                 );
               }

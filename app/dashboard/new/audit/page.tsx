@@ -10,6 +10,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import AuditExportButton from "@/components/AuditExportButton";
 import AuditReport from "@/components/AuditReport";
 
 type FormState = {
@@ -190,10 +191,16 @@ completedTeacherSurveyCount:
   audit.source_input?.completedTeacherSurveyCount ?? 0,
 
   // Supporting evidence
-  teacherSurvey: evidenceText?.teacherSurvey ?? "",
-  parentSurvey: evidenceText?.parentSurvey ?? "",
-  studentSurvey: evidenceText?.studentSurvey ?? "",
-  caseNotes: evidenceText?.caseManagerNotes ?? "",
+teacherSurvey:
+  evidenceText?.teacherSurvey?.trim()
+    ? evidenceText.teacherSurvey
+    : (audit.source_input?.completedTeacherSurveyCount ?? 0) > 0
+      ? evidenceText?.combinedSurvey ?? ""
+      : "",
+
+parentSurvey: evidenceText?.parentSurvey ?? "",
+studentSurvey: evidenceText?.studentSurvey ?? "",
+caseNotes: evidenceText?.caseManagerNotes ?? "",
 
   // Reviewed IEP content
   fieSummary:
@@ -527,7 +534,12 @@ return (
 
           <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-lg font-semibold text-[#0a3d73] shadow-sm">i</div><h2 className="mt-5 text-lg font-semibold text-[#0a3d73]">Final human review</h2><p className="mt-2 text-sm leading-6 text-slate-600">Uploaded audits arrive with extracted content populated. Manual-entry audits use the same workspace with blank fields. Expand a section only when you need to inspect or edit it.</p></section>
 
-          {auditResult ? <button type="button" onClick={() => window.print()} className="print:hidden inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Export Audit</button> : null}
+          {auditResult ? (
+  <AuditExportButton
+    label="Export Audit"
+    className="print:hidden inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+  />
+) : null}
           <button type="button" onClick={handleRunAudit} disabled={isAuditing} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-70">{isAuditing ? "Running audit..." : "Run Evidence Audit"}<span aria-hidden="true">→</span></button>
         </aside>
       </section>
