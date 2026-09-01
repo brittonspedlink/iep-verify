@@ -27,6 +27,50 @@ function formatStatus(status: string | null) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+type ReviewRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is ReviewRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (typeof item === "string" && item.trim()) {
+      return [item.trim()];
+    }
+
+    if (!isRecord(item)) return [];
+
+    const text =
+      getText(item.title) ??
+      getText(item.issue) ??
+      getText(item.description) ??
+      getText(item.recommendation) ??
+      getText(item.action);
+
+    return text ? [text] : [];
+  });
+}
+
+function formatSectionName(sectionName: string) {
+  if (sectionName.toLowerCase() === "plaafp") return "PLAAFP";
+
+  return sectionName
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 export default async function SavedAuditPage({ params }: PageProps) {
   const { auditId } = await params;
 
@@ -229,42 +273,156 @@ if (error || !audit) {
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4d9e7c]">
-          Section Review
-        </p>
+<section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4d9e7c]">
+    Section Review
+  </p>
 
-        <h2 className="mt-2 text-xl font-semibold text-slate-950">
-          Document Reviews
-        </h2>
+  <h2 className="mt-2 text-xl font-semibold text-slate-950">
+    Document Reviews
+  </h2>
 
-        {Object.keys(documentReviews).length > 0 ? (
-          <div className="mt-6 space-y-4">
-            {Object.entries(documentReviews).map(
-              ([sectionName, review]) => (
-                <article
-                  key={sectionName}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
-                >
-                  <h3 className="font-semibold capitalize text-slate-950">
-                    {sectionName.replaceAll("_", " ")}
-                  </h3>
+  <p className="mt-2 text-sm text-slate-500">
+    Focus on the sections that need attention.
+  </p>
 
-                  <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-slate-700">
-                    {typeof review === "string"
-                      ? review
-                      : JSON.stringify(review, null, 2)}
-                  </pre>
-                </article>
-              )
+  {Object.keys(documentReviews).length > 0 ? (
+    <div className="mt-6 space-y-4">
+      {Object.entries(documentReviews).map(([sectionName, rawReview]) => {
+        const review = isRecord(rawReview) ? rawReview : {};
+
+        const score = getNumber(review.score);
+        const status = getText(review.status);
+        const mainIssue = getText(review.mainIssue);
+
+        const findings = getTextList(review.findings);
+        const missingEvidence = getTextList(review.missingEvidence);
+        const conflicts = getTextList(review.conflicts);
+        const recommendations = getTextList(review.recommendedRevisions);
+        const supportedContent = getTextList(review.supportedContent);
+
+        const hasIssues =
+          findings.length > 0 ||
+          missingEvidence.length > 0 ||
+          conflicts.length > 0 ||
+          recommendations.length > 0 ||
+          (score !== null && score < 100);
+
+        return (
+          <article
+            key={sectionName}
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-950">
+                {formatSectionName(sectionName)}
+              </h3>
+
+              <div className="flex items-center gap-2">
+                {score !== null ? (
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      hasIssues
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                  >
+                    {score}
+                  </span>
+                ) : null}
+
+                {status ? (
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                    {formatStatus(status)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {hasIssues ? (
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">
+                  Needs Attention
+                </p>
+
+                <p className="mt-2 text-sm font-medium leading-6 text-slate-900">
+                  {mainIssue ??
+                    findings[0] ??
+                    "This section has findings that should be reviewed."}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5">
+                <p className="font-semibold text-emerald-800">
+                  ✓ No issues found
+                </p>
+
+                {mainIssue ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {mainIssue}
+                  </p>
+                ) : null}
+              </div>
             )}
-          </div>
-        ) : (
-          <p className="mt-5 text-sm leading-6 text-slate-500">
-            No section-level reviews were saved for this audit.
-          </p>
-        )}
-      </section>
+
+            {findings.length > 0 ? (
+              <div className="mt-5">
+                <p className="text-sm font-semibold text-slate-900">
+                  Findings
+                </p>
+
+                <ul className="mt-2 space-y-2 pl-5 text-sm leading-6 text-slate-700">
+                  {findings.map((item) => (
+                    <li key={item} className="list-disc">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {recommendations.length > 0 ? (
+              <div className="mt-5 border-t border-slate-200 pt-5">
+                <p className="text-sm font-semibold text-slate-900">
+                  Recommended Action
+                </p>
+
+                <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
+                  {recommendations.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <span className="font-semibold text-[#4d9e7c]">→</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {supportedContent.length > 0 ? (
+              <details className="mt-5 border-t border-slate-200 pt-4">
+                <summary className="cursor-pointer text-sm font-semibold text-[#0a3d73]">
+                  View supporting evidence
+                </summary>
+
+                <ul className="mt-3 space-y-2 pl-5 text-sm leading-6 text-slate-600">
+                  {supportedContent.map((item) => (
+                    <li key={item} className="list-disc">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </article>
+        );
+      })}
+    </div>
+  ) : (
+    <p className="mt-5 text-sm leading-6 text-slate-500">
+      No section-level reviews were saved for this audit.
+    </p>
+  )}
+</section>
 
       <div className="flex flex-wrap gap-3 pb-8">
         <Link
