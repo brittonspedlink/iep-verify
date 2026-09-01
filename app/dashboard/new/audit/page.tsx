@@ -8,9 +8,9 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  Fragment,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import AuditReport from "@/components/AuditReport";
 
 type FormState = {
   teacherSurvey: string;
@@ -130,7 +130,6 @@ const [studentIdentifier, setStudentIdentifier] = useState("");
   const [validationError, setValidationError] = useState("");
   const [auditError, setAuditError] = useState("");
   const [isAuditing, setIsAuditing] = useState(false);
-  const [expandedDocument, setExpandedDocument] = useState<string | null>("plaafp");
   const [expandedGroups, setExpandedGroups] = useState<Record<GroupKey, boolean>>({ evidence: true, iep: true });
   const [expandedFields, setExpandedFields] = useState<Partial<Record<TextFieldKey, boolean>>>({
     teacherSurvey: false,
@@ -532,310 +531,35 @@ return (
           <button type="button" onClick={handleRunAudit} disabled={isAuditing} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0a3d73] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#07325f] focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-70">{isAuditing ? "Running audit..." : "Run Evidence Audit"}<span aria-hidden="true">→</span></button>
         </aside>
       </section>
-        {auditResult ? (
-         <section
-  ref={resultsRef}
-  id="audit-results"
-  className="rounded-[28px] border border-slate-200/70 bg-white/85 p-6 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.3)] backdrop-blur sm:p-8"
->
-  <div className="hidden print:block print:mb-8">
-  <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-    IEP Verify
-  </p>
-
-  <h1 className="mt-2 text-3xl font-semibold text-slate-950">
-    IEP Audit Report
-  </h1>
-
-  <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-700">
-    <div>
-      <p className="font-semibold text-slate-950">Audit Date</p>
-      <p>{new Date().toLocaleDateString()}</p>
-    </div>
-
-    <div>
-      <p className="font-semibold text-slate-950">Audit Status</p>
-      <p>{auditResult.auditStatus}</p>
-    </div>
-
-    <div>
-      <p className="font-semibold text-slate-950">Overall Score</p>
-      <p>{auditResult.overallScore}</p>
-    </div>
-
-    <div>
-      <p className="font-semibold text-slate-950">Alignment Score</p>
-      <p>{auditResult.documentationAlignmentScore}</p>
-    </div>
-  </div>
-
-  <div className="mt-6 border-t border-slate-200" />
-</div>
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-2xl space-y-2">
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-                  Audit Results
-                </p>
-                <h2 className="text-2xl font-semibold text-slate-950">Professional review summary</h2>
-                <p className="text-sm leading-7 text-slate-600">
-                  {auditResult.overallSummary}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-6 py-4">
-                <div className="text-center">
-                  <p className="text-sm font-medium text-sky-700">Overall Score</p>
-                  <p className="text-3xl font-semibold text-slate-950">{auditResult.overallScore}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Audit Status</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.auditStatus}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Evidence Readiness</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.evidenceReadinessScore}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Alignment Score</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.documentationAlignmentScore}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Critical Gaps</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.criticalGaps.length}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Missing Teacher Surveys</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.caseCompleteness.missingTeacherSurveys}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Blank Documents</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.caseCompleteness.blankDocuments.length}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Placeholder Responses</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{auditResult.caseCompleteness.placeholderResponses.length}</p>
-              </div>
-            </div>
-
-            <div className="mt-8 text-sm leading-7 text-slate-500">
-              IEP Verify evaluates submitted IEP documentation based on the records supplied. It does not certify legal compliance or verify implementation.
-            </div>
-
-            <div className="mt-8 grid gap-4 xl:grid-cols-2">
-              {[
-                {
-                  key: "accommodations",
-                  label: "Accommodations Alignment",
-                  note: "This review evaluates IEP accommodations against source evidence. It does not verify delivery, scheduling, implementation, or compliance logs.",
-                  noData: "Not evaluated — no generated accommodations were provided.",
-                },
-                {
-                  key: "services",
-                  label: "Services Alignment",
-                  note: "This review evaluates the documentation and evidence alignment of the IEP services. It does not verify service delivery, scheduling, implementation, or compliance logs.",
-                  noData: "Not evaluated — no generated services recommendations were provided.",
-                },
-              ].map(({ key, label, note, noData }) => {
-                const review = auditResult.documentReviews[key as keyof typeof auditResult.documentReviews];
-                const hasReviewContent = review.score !== null;
-                return (
-                  <div key={key} className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
-                        <p className="mt-3 text-sm leading-7 text-slate-600">{note}</p>
-                      </div>
-                      <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
-                        {review.status === "review_finding"
-  ? "Review Finding"
-  : review.status === "verified"
-    ? "Verified"
-    : review.status.replaceAll("_", " ")}
-                      </div>
-                    </div>
-
-                    {hasReviewContent ? (
-                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Score</p>
-                          <p className="mt-2 text-3xl font-semibold text-slate-950">{review.score}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Main issue</p>
-                          <p className="mt-2 text-sm leading-7 text-slate-700">{review.mainIssue}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Supported content</p>
-                          <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                            {review.supportedContent.length > 0 ? review.supportedContent.map((item) => <li key={item}>• {item}</li>) : <li>• None identified.</li>}
-                          </ul>
-                        </div>
-                        <div className="rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Possible omissions</p>
-                          <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                            {review.missingEvidence.length > 0 ? review.missingEvidence.map((item) => <li key={item}>• {item}</li>) : <li>• No omissions identified.</li>}
-                          </ul>
-                        </div>
-                        <div className="rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Recommended corrections</p>
-                          <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                            {review.recommendedRevisions.length > 0 ? review.recommendedRevisions.map((item) => <li key={item}>• {item}</li>) : <li>• No corrections identified.</li>}
-                          </ul>
-                        </div>
-                        <div className="sm:col-span-2 rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Prioritized findings</p>
-                          <div className="mt-2 space-y-3 text-sm leading-7 text-slate-600">
-                            {review.findings.length > 0 ? (
-                              review.findings.map((finding) => (
-                                <div key={finding.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{finding.severity}</p>
-                                  <p className="mt-1 font-semibold text-slate-900">{finding.title}</p>
-                                  <p className="mt-1 text-sm text-slate-600">{finding.explanation}</p>
-                                </div>
-                              ))
-                            ) : (
-                              <p>• No prioritized findings identified.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-6 text-sm leading-7 text-slate-600">{noData}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white/80">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Document</th>
-                    <th className="px-4 py-3 font-semibold">Score</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Main Issue</th>
-                    <th className="px-4 py-3 font-semibold print:hidden">View Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { key: "plaafp", label: "PLAAFP" },
-                    { key: "vision", label: "Vision" },
-                    { key: "goals", label: "Goals" },
-                    { key: "accommodations", label: "Accommodations" },
-                    { key: "services", label: "Services" },
-                    { key: "recommendedTeks", label: "Recommended TEKS" },
-                  ].map(({ key, label }) => {
-                    const review = auditResult.documentReviews[key as keyof typeof auditResult.documentReviews];
-                    const isExpanded = expandedDocument === key;
-                    const statusClasses =
-                      review.status === "not_provided"
-                        ? "border-slate-200 bg-slate-100 text-slate-700"
-                        :review.status === "Not Ready for Review" || review.status === "review_finding"
-                          ? "border-rose-200 bg-rose-50 text-rose-700"
-                          : review.status === "Review with Caution"
-                            ? "border-amber-200 bg-amber-50 text-amber-700"
-                            : "border-emerald-200 bg-emerald-50 text-emerald-700";
-
-                    return (
-                      <Fragment key={key}>
-                        <tr className="border-t border-slate-200/80 align-top">
-                          <td className="px-4 py-4 font-medium text-slate-900">{label}</td>
-                          <td className="px-4 py-4 text-slate-700">{review.score !== null ? review.score : "Not provided"}</td>
-                          <td className="px-4 py-4">
-                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClasses}`}>
-                             {review.status === "review_finding"
-  ? "Review Finding"
-  : review.status === "verified"
-    ? "Verified"
-    : review.status.replaceAll("_", " ")}
-                          </span>
-                          </td>
-                          <td className="px-4 py-4 text-slate-700">{review.mainIssue}</td>
-                          <td className="px-4 py-4">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedDocument((current) => (current === key ? null : key))}
-                              className="print:hidden rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                            >
-                              {isExpanded ? "Hide Details" : "View Details"}
-                            </button>
-                          </td>
-                        </tr>
-                        {(
-                          <tr className={isExpanded ? "table-row" : "hidden print:table-row"}>
-                            <td colSpan={5} className="bg-slate-50/80 px-4 py-4">
-                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                <div>
-                                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Supported Content</h4>
-                                  <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                                    {review.supportedContent.length > 0 ? (
-                                      review.supportedContent.map((item) => <li key={item}>• {item}</li>)
-                                    ) : (
-                                      <li>• No supported content identified.</li>
-                                    )}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Missing Evidence</h4>
-                                  <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                                    {review.missingEvidence.length > 0 ? (
-                                      review.missingEvidence.map((item) => <li key={item}>• {item}</li>)
-                                    ) : (
-                                      <li>• No missing evidence identified.</li>
-                                    )}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Unsupported Statements</h4>
-                                  <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                                    {review.unsupportedStatements.length > 0 ? (
-                                      review.unsupportedStatements.map((item) => <li key={item}>• {item}</li>)
-                                    ) : (
-                                      <li>• No unsupported statements identified.</li>
-                                    )}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Conflicts</h4>
-                                  <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                                    {review.conflicts.length > 0 ? (
-                                      review.conflicts.map((item) => <li key={item}>• {item}</li>)
-                                    ) : (
-                                      <li>• No conflicts identified.</li>
-                                    )}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Recommended Revisions</h4>
-                                  <ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">
-                                    {review.recommendedRevisions.length > 0 ? (
-                                      review.recommendedRevisions.map((item) => <li key={item}>• {item}</li>)
-                                    ) : (
-                                      <li>• No revisions recommended.</li>
-                                    )}
-                                  </ul>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
+      {auditResult ? (
+        <section
+          ref={resultsRef}
+          id="audit-results"
+          className="space-y-8"
+        >
+          <AuditReport
+            title={auditName}
+            studentIdentifier={studentIdentifier}
+            auditStatus={auditResult.auditStatus}
+            overallScore={auditResult.overallScore}
+            evidenceReadinessScore={
+              auditResult.evidenceReadinessScore
+            }
+            documentationAlignmentScore={
+              auditResult.documentationAlignmentScore
+            }
+            overallSummary={auditResult.overallSummary}
+            criticalGaps={auditResult.criticalGaps}
+            documentReviews={
+              auditResult.documentReviews as Record<string, unknown>
+            }
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
+
 export default function ReviewAndRunAuditPage() {
   return (
     <Suspense
