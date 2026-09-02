@@ -177,9 +177,24 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+// -------------------------------------------------------
+// 6. LOG COMPLETED AUDIT ACTIVITY
+// -------------------------------------------------------
 
+const { error: activityError } = await supabase
+  .from("audit_activity")
+  .insert({
+    audit_id: auditId,
+    user_id: user.id,
+    activity_type: "audit_completed",
+    description: `Score ${body.result.overallScore}`,
+  });
+
+if (activityError) {
+  console.error("Audit activity save error:", activityError);
+}
     // -------------------------------------------------------
-    // 6. RETURN UPDATED AUDIT
+    // 7. RETURN UPDATED AUDIT
     // -------------------------------------------------------
 
     return NextResponse.json({

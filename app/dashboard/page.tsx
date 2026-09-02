@@ -591,11 +591,16 @@ export default function DashboardPage() {
       );
     }).length;
 
-    const scores = audits
-      .map((audit) => {
-        const result = getAuditResult(audit.audit_results);
-        return result?.overall_score ?? null;
-      })
+const scores = audits
+  .map((audit) => {
+    const result = getAuditResult(audit.audit_results);
+
+    return (
+      result?.overall_score ??
+      audit.overall_score ??
+      null
+    );
+  })
       .filter(
         (score): score is number =>
           typeof score === "number"
@@ -669,7 +674,10 @@ export default function DashboardPage() {
         id: audit.id,
         student: audit.student_identifier,
         auditName: audit.audit_name,
-        score: result?.overall_score ?? null,
+        score:
+  result?.overall_score ??
+  audit.overall_score ??
+  null,
         status: formatStatus(
           result?.audit_status || audit.status
         ),
@@ -689,7 +697,9 @@ export default function DashboardPage() {
       return {
         id: activity.id,
         title: getActivityTitle(activity.activity_type),
-        detail: activity.description || fallbackDetail,
+        detail: activity.description
+  ? `${fallbackDetail} · ${activity.description}`
+  : fallbackDetail,
         time: formatActivityTime(activity.created_at),
       };
     });
