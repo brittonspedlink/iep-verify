@@ -1077,7 +1077,11 @@ files: {
         "Documents uploaded, but the audit record could not be updated."
       );
     }
+setSavedPrimaryDocument(primaryDocument);
+setSavedEvidenceFiles(storedEvidenceFiles);
 
+setPrimaryFile(null);
+setEvidenceFiles(initialEvidenceFiles);
 if (submitModeRef.current === "draft") {
   setSavedAuditId(auditId);
   setStatusMessage("Draft saved successfully.");
