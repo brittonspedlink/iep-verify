@@ -18,6 +18,7 @@ type AuditRow = {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  overall_score: number | null;
   source_input: Record<string, unknown> | null;
   audit_results: AuditResultData | AuditResultData[] | null;
 };
@@ -459,6 +460,7 @@ export default function DashboardPage() {
               created_at,
               updated_at,
               completed_at,
+              overall_score,
               source_input,
               audit_results (
                 overall_score,

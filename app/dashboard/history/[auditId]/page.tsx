@@ -104,8 +104,11 @@ if (error || !audit) {
     ? new Date(audit.completed_at).toLocaleString()
     : null;
 
- return (
-  <div className="mx-auto max-w-6xl space-y-8">
+return (
+  <div
+    id="audit-results"
+    className="mx-auto max-w-6xl space-y-8"
+  >
     <Link
       href="/dashboard/history"
       className="inline-flex text-sm font-semibold text-[#0a3d73] hover:underline print:hidden"
