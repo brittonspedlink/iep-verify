@@ -280,6 +280,18 @@ function getEvidenceReadinessScore(payload: Record<string, unknown>) {
     payload.completedTeacherSurveyCount ?? 0
   );
 
+  const parentSurveyExpected =
+    payload.parentSurveyExpected === true;
+
+  const parentSurveyReceived =
+    payload.parentSurveyReceived === true;
+
+  const studentSurveyExpected =
+    payload.studentSurveyExpected === true;
+
+  const studentSurveyReceived =
+    payload.studentSurveyReceived === true;
+
   const missingTeacherSurveys = Math.max(
     expectedTeacherSurveys - completedTeacherSurveys,
     0
@@ -287,7 +299,8 @@ function getEvidenceReadinessScore(payload: Record<string, unknown>) {
 
   let readinessScore = 100;
 
-  // Missing expected teacher surveys are a significant evidence gap.
+  // Only missing surveys that were actually expected should
+  // reduce evidence readiness.
   if (missingTeacherSurveys > 0) {
     readinessScore -= Math.min(
       missingTeacherSurveys * 20,
@@ -295,32 +308,44 @@ function getEvidenceReadinessScore(payload: Record<string, unknown>) {
     );
   }
 
-  // If teacher evidence itself is absent, the audit loses a major
-  // source of classroom evidence.
+  // If teacher surveys were marked received but no usable teacher
+  // evidence made it through processing, treat that as an evidence gap.
   if (
-    !isMeaningfulText(payload.teacherSurvey) ||
-    isPlaceholderLike(payload.teacherSurvey)
+    completedTeacherSurveys > 0 &&
+    (
+      !isMeaningfulText(payload.teacherSurvey) ||
+      isPlaceholderLike(payload.teacherSurvey)
+    )
   ) {
     readinessScore -= 20;
   }
 
-  // Parent and student voice are meaningful parts of the evidence baseline.
+  // Parent survey only affects readiness when it was expected.
   if (
-    !isMeaningfulText(payload.parentSurvey) ||
-    isPlaceholderLike(payload.parentSurvey)
+    parentSurveyExpected &&
+    (
+      !parentSurveyReceived ||
+      !isMeaningfulText(payload.parentSurvey) ||
+      isPlaceholderLike(payload.parentSurvey)
+    )
   ) {
     readinessScore -= 15;
   }
 
+  // Student survey only affects readiness when it was expected.
   if (
-    !isMeaningfulText(payload.studentSurvey) ||
-    isPlaceholderLike(payload.studentSurvey)
+    studentSurveyExpected &&
+    (
+      !studentSurveyReceived ||
+      !isMeaningfulText(payload.studentSurvey) ||
+      isPlaceholderLike(payload.studentSurvey)
+    )
   ) {
     readinessScore -= 15;
   }
 
   // Case manager notes are useful, but their absence should not carry
-  // the same penalty as a missing survey.
+  // the same penalty as a missing expected survey.
   if (
     isMeaningfulText(payload.caseNotes) &&
     isPlaceholderLike(payload.caseNotes)
@@ -363,6 +388,18 @@ function collectCriticalGaps(
     payload.completedTeacherSurveyCount ?? 0
   );
 
+  const parentSurveyExpected =
+    payload.parentSurveyExpected === true;
+
+  const parentSurveyReceived =
+    payload.parentSurveyReceived === true;
+
+  const studentSurveyExpected =
+    payload.studentSurveyExpected === true;
+
+  const studentSurveyReceived =
+    payload.studentSurveyReceived === true;
+
   const missingTeacherSurveys = Math.max(
     expectedTeacherSurveys - completedTeacherSurveys,
     0
@@ -392,39 +429,58 @@ function collectCriticalGaps(
     );
   }
 
+  // Teacher surveys
   if (missingTeacherSurveys > 0) {
     gaps.push(
       `Evidence gap: ${missingTeacherSurveys} of ${expectedTeacherSurveys} expected teacher survey${
         expectedTeacherSurveys === 1 ? "" : "s"
-      } were not available for this audit.`
+      } were not received for this audit.`
     );
   } else if (
-    expectedTeacherSurveys > 0 &&
+    completedTeacherSurveys > 0 &&
     (
       !isMeaningfulText(teacherSurvey) ||
       isPlaceholderLike(teacherSurvey)
     )
   ) {
     gaps.push(
-      "Evidence gap: Teacher survey evidence was expected but was not available or was incomplete."
+      "Evidence gap: Teacher survey evidence was marked received, but usable teacher survey evidence was not available after processing."
     );
   }
 
-  if (
-    !isMeaningfulText(parentSurvey) ||
-    isPlaceholderLike(parentSurvey)
+  // Parent survey — only a gap when it was expected.
+  if (parentSurveyExpected && !parentSurveyReceived) {
+    gaps.push(
+      "Evidence gap: A parent survey was expected but was not received."
+    );
+  } else if (
+    parentSurveyExpected &&
+    parentSurveyReceived &&
+    (
+      !isMeaningfulText(parentSurvey) ||
+      isPlaceholderLike(parentSurvey)
+    )
   ) {
     gaps.push(
-      "Evidence gap: Parent survey evidence was not available or was incomplete."
+      "Evidence gap: Parent survey evidence was marked received, but usable parent survey evidence was not available after processing."
     );
   }
 
-  if (
-    !isMeaningfulText(studentSurvey) ||
-    isPlaceholderLike(studentSurvey)
+  // Student survey — only a gap when it was expected.
+  if (studentSurveyExpected && !studentSurveyReceived) {
+    gaps.push(
+      "Evidence gap: A student survey was expected but was not received."
+    );
+  } else if (
+    studentSurveyExpected &&
+    studentSurveyReceived &&
+    (
+      !isMeaningfulText(studentSurvey) ||
+      isPlaceholderLike(studentSurvey)
+    )
   ) {
     gaps.push(
-      "Evidence gap: Student survey evidence was not available or was incomplete."
+      "Evidence gap: Student survey evidence was marked received, but usable student survey evidence was not available after processing."
     );
   }
 
@@ -476,6 +532,13 @@ export async function POST(request: Request) {
     const recommendedTeks = normalizeString(body.recommendedTeks);
     const expectedTeacherSurveyCount = Number(body.expectedTeacherSurveyCount ?? 0);
     const completedTeacherSurveyCount = Number(body.completedTeacherSurveyCount ?? 0);
+    const parentSurveyExpected = Boolean(body.parentSurveyExpected);
+const parentSurveyReceived = Boolean(body.parentSurveyReceived);
+const studentSurveyExpected = Boolean(body.studentSurveyExpected);
+const studentSurveyReceived = Boolean(body.studentSurveyReceived);
+const surveyCompletenessConfirmed = Boolean(
+  body.surveyCompletenessConfirmed
+);
 
     const payload = {
       teacherSurvey,
@@ -490,8 +553,31 @@ export async function POST(request: Request) {
       recommendedTeks,
       expectedTeacherSurveyCount,
       completedTeacherSurveyCount,
+      parentSurveyExpected,
+parentSurveyReceived,
+studentSurveyExpected,
+studentSurveyReceived,
+surveyCompletenessConfirmed,
     };
+if (!surveyCompletenessConfirmed) {
+  return NextResponse.json(
+    {
+      error:
+        "Survey Completeness must be confirmed before running the audit.",
+    },
+    { status: 400 }
+  );
+}
 
+if (completedTeacherSurveyCount > expectedTeacherSurveyCount) {
+  return NextResponse.json(
+    {
+      error:
+        "Received teacher surveys cannot exceed expected teacher surveys.",
+    },
+    { status: 400 }
+  );
+}
     console.log("Audit API payload:", payload);
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -525,7 +611,9 @@ CORE AUDIT DOCTRINE:
 - Do not require information that is not present in the supplied evidence unless its absence genuinely prevents an alignment determination.
 
 EVIDENCE AVAILABILITY:
-- Missing expected teacher, parent, or student survey evidence is an important limitation of the audit evidence baseline.
+- Only treat teacher, parent, or student survey evidence as missing when Survey Completeness indicates that the survey was expected but not received.
+- A parent or student survey marked as not expected is not a deficiency and must not lower alignment scores or generate a missing-evidence finding.
+- If a survey is marked received but no usable survey evidence is available after processing, treat that as an evidence-processing limitation rather than assuming the survey itself was never provided.
 - Missing survey evidence affects confidence in the audit and evidence readiness, but it is not by itself proof that the IEP documentation is misaligned.
 - When evidence needed to evaluate a particular section is genuinely unavailable, use insufficient evidence rather than inventing a deficiency.
 - Evaluate documentation alignment only against evidence actually supplied.
@@ -590,6 +678,11 @@ Do not evaluate legal compliance. Do not make legal conclusions. Do not infer el
             recommendedTeks: payload.recommendedTeks,
             expectedTeacherSurveyCount: payload.expectedTeacherSurveyCount,
             completedTeacherSurveyCount: payload.completedTeacherSurveyCount,
+            parentSurveyExpected: payload.parentSurveyExpected,
+            parentSurveyReceived: payload.parentSurveyReceived,
+            studentSurveyExpected: payload.studentSurveyExpected,
+            studentSurveyReceived: payload.studentSurveyReceived,
+            surveyCompletenessConfirmed: payload.surveyCompletenessConfirmed,
           }),
         },
       ],
@@ -662,13 +755,28 @@ Do not evaluate legal compliance. Do not make legal conclusions. Do not infer el
       .map(([label]) => label);
    
 const placeholderResponses = [
-  ["teacherSurvey", payload.teacherSurvey],
-  ["parentSurvey", payload.parentSurvey],
-  ["studentSurvey", payload.studentSurvey],
+  ...(completedTeacherSurveys > 0
+    ? [["teacherSurvey", payload.teacherSurvey]]
+    : []),
+
+  ...(payload.parentSurveyExpected === true ||
+  payload.parentSurveyReceived === true
+    ? [["parentSurvey", payload.parentSurvey]]
+    : []),
+
+  ...(payload.studentSurveyExpected === true ||
+  payload.studentSurveyReceived === true
+    ? [["studentSurvey", payload.studentSurvey]]
+    : []),
+
   ["caseNotes", payload.caseNotes],
 ]
-  .filter(([, value]) => isPlaceholderLike(value))
-  .map(([label]) => label);
+  .filter(
+    ([, value]) =>
+      isMeaningfulText(value) &&
+      isPlaceholderLike(value)
+  )
+  .map(([label]) => String(label));
 
 const criticalGaps = collectCriticalGaps(
   payload,

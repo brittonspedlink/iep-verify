@@ -27,6 +27,11 @@ type FormState = {
   recommendedTEKS: string;
   expectedTeacherSurveyCount: number;
   completedTeacherSurveyCount: number;
+  parentSurveyExpected: boolean;
+parentSurveyReceived: boolean;
+studentSurveyExpected: boolean;
+studentSurveyReceived: boolean;
+surveyCompletenessConfirmed: boolean;
 };
 
 type ReviewFinding = {
@@ -74,7 +79,16 @@ type AuditResult = {
   };
 };
 
-type TextFieldKey = Exclude<keyof FormState, "expectedTeacherSurveyCount" | "completedTeacherSurveyCount">;
+type TextFieldKey = Exclude<
+  keyof FormState,
+  | "expectedTeacherSurveyCount"
+  | "completedTeacherSurveyCount"
+  | "parentSurveyExpected"
+  | "parentSurveyReceived"
+  | "studentSurveyExpected"
+  | "studentSurveyReceived"
+  | "surveyCompletenessConfirmed"
+>;
 type GroupKey = "evidence" | "iep";
 
 const fieldDefinitions: Array<{
@@ -114,6 +128,11 @@ const initialState: FormState = {
   recommendedTEKS: "",
   expectedTeacherSurveyCount: 0,
   completedTeacherSurveyCount: 0,
+  parentSurveyExpected: false,
+parentSurveyReceived: false,
+studentSurveyExpected: false,
+studentSurveyReceived: false,
+surveyCompletenessConfirmed: false,
 };
 
 function fieldLabel(key: TextFieldKey) {
@@ -189,7 +208,20 @@ expectedTeacherSurveyCount:
 
 completedTeacherSurveyCount:
   audit.source_input?.completedTeacherSurveyCount ?? 0,
+parentSurveyExpected:
+  audit.source_input?.parentSurveyExpected ?? false,
 
+parentSurveyReceived:
+  audit.source_input?.parentSurveyReceived ?? false,
+
+studentSurveyExpected:
+  audit.source_input?.studentSurveyExpected ?? false,
+
+studentSurveyReceived:
+  audit.source_input?.studentSurveyReceived ?? false,
+
+surveyCompletenessConfirmed:
+  audit.source_input?.surveyCompletenessConfirmed ?? false,
   // Supporting evidence
 teacherSurvey:
   evidenceText?.teacherSurvey?.trim()
@@ -236,6 +268,17 @@ caseNotes: evidenceText?.caseManagerNotes ?? "",
   };
 
   const handleRunAudit = async () => {
+  if (!formData.surveyCompletenessConfirmed) {
+  setAuditResult(null);
+  setAuditError("");
+  setValidationError(
+    "Survey Completeness must be confirmed before running the audit."
+  );
+  setAuditMessage(
+    "Return to Upload and confirm which surveys were expected and received."
+  );
+  return;
+}
     const sourceEvidenceCompleted = evidenceFields.filter((field) => formData[field].trim().length > 0).length;
 
     if (sourceEvidenceCompleted === 0) {
@@ -263,6 +306,11 @@ caseNotes: evidenceText?.caseManagerNotes ?? "",
           caseNotes: formData.caseNotes,
           expectedTeacherSurveyCount: formData.expectedTeacherSurveyCount,
           completedTeacherSurveyCount: formData.completedTeacherSurveyCount,
+          parentSurveyExpected: formData.parentSurveyExpected,
+parentSurveyReceived: formData.parentSurveyReceived,
+studentSurveyExpected: formData.studentSurveyExpected,
+studentSurveyReceived: formData.studentSurveyReceived,
+surveyCompletenessConfirmed: formData.surveyCompletenessConfirmed,
           plaafp: formData.plaaFP,
           vision: formData.vision,
           goals: formData.goals,

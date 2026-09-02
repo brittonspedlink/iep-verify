@@ -61,6 +61,11 @@ type SavedSourceInput = {
 
   expectedTeacherSurveyCount?: number;
   completedTeacherSurveyCount?: number;
+  parentSurveyExpected?: boolean;
+parentSurveyReceived?: boolean;
+studentSurveyExpected?: boolean;
+studentSurveyReceived?: boolean;
+surveyCompletenessConfirmed?: boolean;
 };
 type EvidenceDragging = Record<EvidenceKey, boolean>;
 type AccordionState = Record<EvidenceKey, boolean>;
@@ -296,6 +301,20 @@ const [isLoadingDraft, setIsLoadingDraft] =
 
   const [completedTeacherSurveyCount, setCompletedTeacherSurveyCount] =
     useState(0);
+const [parentSurveyExpected, setParentSurveyExpected] =
+  useState(false);
+
+const [parentSurveyReceived, setParentSurveyReceived] =
+  useState(false);
+
+const [studentSurveyExpected, setStudentSurveyExpected] =
+  useState(false);
+
+const [studentSurveyReceived, setStudentSurveyReceived] =
+  useState(false);
+
+const [surveyCompletenessConfirmed, setSurveyCompletenessConfirmed] =
+  useState(false);
 
 const [errorMessage, setErrorMessage] = useState("");
 const [statusMessage, setStatusMessage] = useState("");
@@ -429,7 +448,25 @@ useEffect(() => {
           audit.completed_teacher_survey_count ??
           0
       );
+      setParentSurveyExpected(
+  sourceInput.parentSurveyExpected ?? false
+);
 
+setParentSurveyReceived(
+  sourceInput.parentSurveyReceived ?? false
+);
+
+setStudentSurveyExpected(
+  sourceInput.studentSurveyExpected ?? false
+);
+
+setStudentSurveyReceived(
+  sourceInput.studentSurveyReceived ?? false
+);
+
+setSurveyCompletenessConfirmed(
+  sourceInput.surveyCompletenessConfirmed ?? false
+);
       setSavedAuditId(audit.id);
       setStatusMessage("Draft loaded.");
     } catch (error) {
@@ -636,7 +673,24 @@ function getEvidenceSummary(key: EvidenceKey) {
 }
 async function updateSavedDraft(goToProcess = false) {
   if (!savedAuditId) return;
+  if (goToProcess && !surveyCompletenessConfirmed) {
+  setErrorMessage(
+    "Confirm Survey Completeness before processing the audit."
+  );
+  setStatusMessage("");
+  return;
+}
 
+if (
+  goToProcess &&
+  completedTeacherSurveyCount > expectedTeacherSurveyCount
+) {
+  setErrorMessage(
+    "Received teacher surveys cannot exceed the expected teacher survey count."
+  );
+  setStatusMessage("");
+  return;
+}
   setIsSubmitting(true);
   setErrorMessage("");
   setStatusMessage("Saving draft...");
@@ -755,6 +809,11 @@ async function updateSavedDraft(goToProcess = false) {
 
       expectedTeacherSurveyCount,
       completedTeacherSurveyCount,
+      parentSurveyExpected,
+      parentSurveyReceived,
+      studentSurveyExpected,
+      studentSurveyReceived,
+      surveyCompletenessConfirmed,
     };
 
     const { error: updateError } = await supabase
@@ -858,7 +917,15 @@ const hasSurveyEvidence =
 
     return;
   }
-
+if (
+  submitModeRef.current === "process" &&
+  !surveyCompletenessConfirmed
+) {
+  setErrorMessage(
+    "Confirm Survey Completeness before processing the audit."
+  );
+  return;
+}
   if (completedTeacherSurveyCount > expectedTeacherSurveyCount) {
     setErrorMessage(
       "Completed teacher surveys cannot exceed the expected teacher survey count."
@@ -931,8 +998,13 @@ files: {
         auditType,
       },
 
-      expectedTeacherSurveyCount,
-      completedTeacherSurveyCount,
+expectedTeacherSurveyCount,
+completedTeacherSurveyCount,
+parentSurveyExpected,
+parentSurveyReceived,
+studentSurveyExpected,
+studentSurveyReceived,
+surveyCompletenessConfirmed,
     };
 
     console.log("AUDIT INSERT DEBUG", {
@@ -1057,8 +1129,13 @@ files: {
         auditType,
       },
 
-      expectedTeacherSurveyCount,
-      completedTeacherSurveyCount,
+expectedTeacherSurveyCount,
+completedTeacherSurveyCount,
+parentSurveyExpected,
+parentSurveyReceived,
+studentSurveyExpected,
+studentSurveyReceived,
+surveyCompletenessConfirmed,
     };
 
     const { error: updateError } = await supabase
@@ -1435,45 +1512,192 @@ router.push(
             </p>
           </div>
 
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-800">
-                Expected teacher survey count
-              </span>
+<div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6">
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h3 className="text-base font-semibold text-slate-950">
+        Survey Completeness
+      </h3>
 
-              <input
-                type="number"
-                min="0"
-                value={expectedTeacherSurveyCount}
-                onChange={(event) => {
-                  setExpectedTeacherSurveyCount(
-                    Math.max(0, Number(event.target.value))
-                  );
-                  clearMessages();
-                }}
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
-              />
-            </label>
+      <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+        Confirm which surveys were expected and which were received.
+        Missing expected surveys affect evidence readiness, but surveys that
+        were not expected will not be treated as missing evidence.
+      </p>
+    </div>
 
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-800">
-                Completed teacher survey count
-              </span>
+    <span className="inline-flex w-fit rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+      Required before processing
+    </span>
+  </div>
 
-              <input
-                type="number"
-                min="0"
-                value={completedTeacherSurveyCount}
-                onChange={(event) => {
-                  setCompletedTeacherSurveyCount(
-                    Math.max(0, Number(event.target.value))
-                  );
-                  clearMessages();
-                }}
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none transition focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
-              />
-            </label>
-          </div>
+  <div className="mt-6 space-y-4">
+    <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_180px_180px] md:items-end">
+      <div>
+        <p className="text-sm font-semibold text-slate-900">
+          Teacher surveys
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Enter the number of teacher surveys expected and actually received.
+        </p>
+      </div>
+
+      <label>
+        <span className="text-xs font-semibold text-slate-600">
+          Expected
+        </span>
+        <input
+          type="number"
+          min="0"
+          value={expectedTeacherSurveyCount}
+          onChange={(event) => {
+            setExpectedTeacherSurveyCount(
+              Math.max(0, Number(event.target.value))
+            );
+            setSurveyCompletenessConfirmed(false);
+            clearMessages();
+          }}
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+        />
+      </label>
+
+      <label>
+        <span className="text-xs font-semibold text-slate-600">
+          Received
+        </span>
+        <input
+          type="number"
+          min="0"
+          value={completedTeacherSurveyCount}
+          onChange={(event) => {
+            setCompletedTeacherSurveyCount(
+              Math.max(0, Number(event.target.value))
+            );
+            setSurveyCompletenessConfirmed(false);
+            clearMessages();
+          }}
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+        />
+      </label>
+    </div>
+
+    <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_180px_180px] md:items-end">
+      <div>
+        <p className="text-sm font-semibold text-slate-900">
+          Parent survey
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Confirm whether parent input was expected and whether it was received.
+        </p>
+      </div>
+
+      <label>
+        <span className="text-xs font-semibold text-slate-600">
+          Expected
+        </span>
+        <select
+          value={parentSurveyExpected ? "yes" : "no"}
+          onChange={(event) => {
+            setParentSurveyExpected(event.target.value === "yes");
+            setSurveyCompletenessConfirmed(false);
+            clearMessages();
+          }}
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+        >
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </label>
+
+      <label>
+        <span className="text-xs font-semibold text-slate-600">
+          Received
+        </span>
+        <select
+          value={parentSurveyReceived ? "yes" : "no"}
+          onChange={(event) => {
+            setParentSurveyReceived(event.target.value === "yes");
+            setSurveyCompletenessConfirmed(false);
+            clearMessages();
+          }}
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+        >
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </label>
+    </div>
+
+    <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_180px_180px] md:items-end">
+      <div>
+        <p className="text-sm font-semibold text-slate-900">
+          Student survey
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Confirm whether student input was expected and whether it was received.
+        </p>
+      </div>
+
+      <label>
+        <span className="text-xs font-semibold text-slate-600">
+          Expected
+        </span>
+        <select
+          value={studentSurveyExpected ? "yes" : "no"}
+          onChange={(event) => {
+            setStudentSurveyExpected(event.target.value === "yes");
+            setSurveyCompletenessConfirmed(false);
+            clearMessages();
+          }}
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+        >
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </label>
+
+      <label>
+        <span className="text-xs font-semibold text-slate-600">
+          Received
+        </span>
+        <select
+          value={studentSurveyReceived ? "yes" : "no"}
+          onChange={(event) => {
+            setStudentSurveyReceived(event.target.value === "yes");
+            setSurveyCompletenessConfirmed(false);
+            clearMessages();
+          }}
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#0a3d73] focus:ring-4 focus:ring-blue-100"
+        >
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+    <input
+      type="checkbox"
+      checked={surveyCompletenessConfirmed}
+      onChange={(event) => {
+        setSurveyCompletenessConfirmed(event.target.checked);
+        clearMessages();
+      }}
+      className="mt-1 h-4 w-4 rounded border-slate-300"
+    />
+
+    <span>
+      <span className="block text-sm font-semibold text-[#0a3d73]">
+        Confirm survey completeness
+      </span>
+      <span className="mt-1 block text-xs leading-5 text-slate-600">
+        I confirm that the expected and received survey information above
+        accurately reflects the evidence available for this audit.
+      </span>
+    </span>
+  </label>
+</div>
 
           <div className="mt-7 space-y-4">
             {evidenceDefinitions.map((definition) => {
