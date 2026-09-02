@@ -598,39 +598,143 @@ export async function POST(
   typeof sourceInput?.primaryText === "string"
     ? sourceInput.primaryText.trim()
     : "";  
-    const combinedSurveyFiles =
-  (sourceInput?.files?.combinedSurvey as StoredFileMetadata[] | undefined) ?? [];
+const teacherSurveyFiles =
+  (sourceInput?.files?.teacherSurvey as
+    | StoredFileMetadata[]
+    | undefined) ?? [];
 
-    const combinedSurveyText =
+const parentSurveyFiles =
+  (sourceInput?.files?.parentSurvey as
+    | StoredFileMetadata[]
+    | undefined) ?? [];
+
+const studentSurveyFiles =
+  (sourceInput?.files?.studentSurvey as
+    | StoredFileMetadata[]
+    | undefined) ?? [];
+
+const combinedSurveyFiles =
+  (sourceInput?.files?.combinedSurvey as
+    | StoredFileMetadata[]
+    | undefined) ?? [];
+
+const teacherSurveyText =
+  typeof sourceInput?.evidenceText?.teacherSurvey === "string"
+    ? sourceInput.evidenceText.teacherSurvey.trim()
+    : "";
+
+const parentSurveyText =
+  typeof sourceInput?.evidenceText?.parentSurvey === "string"
+    ? sourceInput.evidenceText.parentSurvey.trim()
+    : "";
+
+const studentSurveyText =
+  typeof sourceInput?.evidenceText?.studentSurvey === "string"
+    ? sourceInput.evidenceText.studentSurvey.trim()
+    : "";
+
+const combinedSurveyText =
   typeof sourceInput?.evidenceText?.combinedSurvey === "string"
     ? sourceInput.evidenceText.combinedSurvey.trim()
     : "";
-    
-const extractedCombinedSurveyParts: string[] = [];
 
-if (combinedSurveyText) {
-  extractedCombinedSurveyParts.push(combinedSurveyText);
-}
+async function extractEvidenceFiles(
+  files: StoredFileMetadata[]
+) {
+  const parts: string[] = [];
 
-for (const file of combinedSurveyFiles) {
-  const extractedText = await extractStoredEvidenceFile(supabase, file);
+  for (const file of files) {
+    const extractedText = await extractStoredEvidenceFile(
+      supabase,
+      file
+    );
 
-  if (extractedText) {
-    extractedCombinedSurveyParts.push(extractedText);
+    if (extractedText) {
+      parts.push(extractedText);
+    }
   }
+
+  return parts.join("\n\n").trim();
 }
 
-const combinedSurveyEvidence = extractedCombinedSurveyParts
+const [
+  extractedTeacherSurveyFiles,
+  extractedParentSurveyFiles,
+  extractedStudentSurveyFiles,
+  extractedCombinedSurveyFiles,
+] = await Promise.all([
+  extractEvidenceFiles(teacherSurveyFiles),
+  extractEvidenceFiles(parentSurveyFiles),
+  extractEvidenceFiles(studentSurveyFiles),
+  extractEvidenceFiles(combinedSurveyFiles),
+]);
+
+const combinedSurveyEvidence = [
+  combinedSurveyText,
+  extractedCombinedSurveyFiles,
+]
+  .filter(Boolean)
   .join("\n\n")
   .trim();
+
 const classifiedCombinedSurvey =
   combinedSurveyEvidence.length > 0
-    ? await classifyCombinedSurveyEvidence(combinedSurveyEvidence)
+    ? await classifyCombinedSurveyEvidence(
+        combinedSurveyEvidence
+      )
     : {
         teacherSurvey: "",
         parentSurvey: "",
         studentSurvey: "",
       };
+
+function mergeEvidenceParts(...parts: string[]) {
+  let merged = "";
+
+  for (const rawPart of parts) {
+    const part = rawPart.trim();
+
+    if (!part) {
+      continue;
+    }
+
+    if (!merged) {
+      merged = part;
+      continue;
+    }
+
+    if (merged.includes(part)) {
+      continue;
+    }
+
+    if (part.includes(merged)) {
+      merged = part;
+      continue;
+    }
+
+    merged += `\n\n${part}`;
+  }
+
+  return merged.trim();
+}
+
+const processedTeacherSurvey = mergeEvidenceParts(
+  teacherSurveyText,
+  extractedTeacherSurveyFiles,
+  classifiedCombinedSurvey.teacherSurvey
+);
+
+const processedParentSurvey = mergeEvidenceParts(
+  parentSurveyText,
+  extractedParentSurveyFiles,
+  classifiedCombinedSurvey.parentSurvey
+);
+
+const processedStudentSurvey = mergeEvidenceParts(
+  studentSurveyText,
+  extractedStudentSurveyFiles,
+  classifiedCombinedSurvey.studentSurvey
+);
 if (!primaryFile?.path && !pastedPrimaryText) {
   return NextResponse.json(
     { error: "No primary IEP document or pasted IEP text was provided." },
@@ -718,20 +822,11 @@ const updatedSourceInput = {
   evidenceText: {
     ...(sourceInput.evidenceText ?? {}),
 
-    teacherSurvey:
-      combinedSurveyEvidence.length > 0
-        ? classifiedCombinedSurvey.teacherSurvey
-        : sourceInput.evidenceText?.teacherSurvey ?? "",
+teacherSurvey: processedTeacherSurvey,
 
-    parentSurvey:
-      combinedSurveyEvidence.length > 0
-        ? classifiedCombinedSurvey.parentSurvey
-        : sourceInput.evidenceText?.parentSurvey ?? "",
+parentSurvey: processedParentSurvey,
 
-    studentSurvey:
-      combinedSurveyEvidence.length > 0
-        ? classifiedCombinedSurvey.studentSurvey
-        : sourceInput.evidenceText?.studentSurvey ?? "",
+studentSurvey: processedStudentSurvey,
 
     caseManagerNotes:
       sourceInput.evidenceText?.caseManagerNotes?.trim() ||
