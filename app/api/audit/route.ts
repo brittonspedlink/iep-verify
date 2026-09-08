@@ -64,11 +64,12 @@ function isPlaceholderLike(value: unknown): boolean {
   }
 
   const normalized = value.trim().toLowerCase();
-  if (["test", "n/a", "na", "none", "tbd", "placeholder", "sample"].includes(normalized)) {
-    return true;
-  }
 
-  if (normalized.includes("test") || normalized.includes("sample")) {
+  if (
+    ["test", "n/a", "na", "none", "tbd", "placeholder", "sample"].includes(
+      normalized
+    )
+  ) {
     return true;
   }
 
