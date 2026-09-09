@@ -1447,9 +1447,16 @@ router.push(
                 Or click to browse your computer.
               </p>
 
-              <p className="mt-4 text-xs text-slate-400">
-                PDF or DOCX · Maximum 25 MB
-              </p>
+<div className="mt-4 space-y-1">
+  <p className="text-xs text-slate-400">
+    PDF or DOCX · Maximum 25 MB
+  </p>
+
+  <p className="text-xs leading-5 text-slate-500">
+    Older Word files (.doc) are not supported. Open the file in Word and save it
+    as PDF or .docx before uploading.
+  </p>
+</div>
             </div>
           )}
 
@@ -1851,9 +1858,16 @@ router.push(
                               Or click to browse
                             </p>
 
-                            <p className="mt-4 text-xs text-slate-400">
-                              Multiple PDF or DOCX files
-                            </p>
+<div className="mt-4 space-y-1">
+  <p className="text-xs text-slate-400">
+    Multiple PDF or DOCX files
+  </p>
+
+  <p className="text-xs leading-5 text-slate-500">
+    Older Word files (.doc) are not supported. Save them as PDF or .docx before
+    uploading.
+  </p>
+</div>
                           </div>
 {savedFiles.length > 0 ? (
   <div className="mt-4 space-y-3">
