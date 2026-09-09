@@ -498,13 +498,13 @@ function collectCriticalGaps(
     .filter(([, value]) => !isMeaningfulText(value))
     .map(([label]) => label);
 
-  if (blankDocuments.length > 0) {
+if (blankDocuments.length > 0) {
+  blankDocuments.forEach((section) => {
     gaps.push(
-      `Review limitation: IEP sections not provided: ${blankDocuments.join(
-        ", "
-      )}. Alignment could not be determined for those sections.`
+      `Required IEP section missing: ${section}.`
     );
-  }
+  });
+}
 
   if (
     evidenceReadinessScore < 60 &&
@@ -754,7 +754,17 @@ Do not evaluate legal compliance. Do not make legal conclusions. Do not infer el
     ]
       .filter(([, value]) => !isMeaningfulText(value))
       .map(([label]) => label);
-   
+   const missingRequiredSectionCount = blankDocuments.length;
+const hasMissingRequiredSection = missingRequiredSectionCount > 0;
+
+const missingRequiredSectionScoreCap =
+  missingRequiredSectionCount >= 3
+    ? 49
+    : missingRequiredSectionCount === 2
+      ? 59
+      : missingRequiredSectionCount === 1
+        ? 69
+        : 100;
 const placeholderResponses = [
   ...(completedTeacherSurveys > 0
     ? [["teacherSurvey", payload.teacherSurvey]]
@@ -783,13 +793,28 @@ const criticalGaps = collectCriticalGaps(
   payload,
   evidenceReadinessScore
 );
+const requiredSectionValues: Record<string, string> = {
+  plaafp,
+  vision,
+  goals,
+  accommodations,
+  services,
+  recommendedTeks,
+};
 
+const requiredSectionLabels: Record<string, string> = {
+  plaafp: "PLAAFP",
+  vision: "Vision",
+  goals: "Goals",
+  accommodations: "Accommodations",
+  services: "Services",
+  recommendedTeks: "Recommended TEKS",
+};
     const normalizedDocumentReviews = Object.fromEntries(
       Object.entries(documentReviews).map(([key, review]) => {
         const reviewValue = review && typeof review === "object" ? (review as Record<string, unknown>) : {};
-        const isNotProvided =
-          (key === "accommodations" && !isMeaningfulText(accommodations)) ||
-          (key === "services" && !isMeaningfulText(services));
+const isNotProvided =
+  !isMeaningfulText(requiredSectionValues[key]);
         const score = isNotProvided
           ? null
           : typeof reviewValue.score === "number"
@@ -843,9 +868,9 @@ const criticalGaps = collectCriticalGaps(
 const mainIssue = typeof reviewValue.mainIssue === "string"
   ? reviewValue.mainIssue
   : isNotProvided
-    ? `No generated ${
-        key === "accommodations" ? "accommodations" : "services"
-      } were provided.`
+    ? `Required IEP section not provided: ${
+        requiredSectionLabels[key] ?? key
+      }.`
     : missingEvidence.length
       ? "Additional evidence-alignment context should be reviewed."
       : "No major alignment concerns were identified.";
@@ -979,10 +1004,36 @@ if (hasCriticalFinding) {
     79
   );
 }
+if (hasMissingRequiredSection) {
+  documentationAlignmentScore = Math.min(
+    documentationAlignmentScore,
+    missingRequiredSectionScoreCap
+  );
+}
+// Evidence completeness limits how confidently documentation
+// alignment can be scored. A highly aligned subset of documents
+// must not produce a near-perfect alignment score when material
+// expected evidence is missing.
+if (evidenceReadinessScore < 60) {
+  documentationAlignmentScore = Math.min(
+    documentationAlignmentScore,
+    74
+  );
+} else if (evidenceReadinessScore < 80) {
+  documentationAlignmentScore = Math.min(
+    documentationAlignmentScore,
+    89
+  );
+} else if (evidenceReadinessScore < 90) {
+  documentationAlignmentScore = Math.min(
+    documentationAlignmentScore,
+    94
+  );
+}
 
-// Documentation alignment is the primary purpose of IEP Verify.
-// Evidence readiness affects confidence in that determination
-// without automatically declaring the IEP itself misaligned.
+// Documentation alignment remains the primary audit measure,
+// but evidence readiness determines how much confidence can
+// reasonably be placed in that alignment judgment.
 let overallScore = Math.round(
   evidenceReadinessScore * 0.4 +
     documentationAlignmentScore * 0.6
@@ -999,12 +1050,20 @@ if (reviewRequiredCount >= 2) {
 if (hasCriticalFinding) {
   overallScore = Math.min(overallScore, 79);
 }
-
-// Weak evidence readiness is a meaningful limitation of the audit,
-// even when the documentation that can be reviewed appears aligned.
+if (hasMissingRequiredSection) {
+  overallScore = Math.min(
+    overallScore,
+    missingRequiredSectionScoreCap
+  );
+}
+// Materially incomplete evidence must meaningfully constrain the
+// final audit score rather than allowing strong available documents
+// to mask an incomplete evidence baseline.
 if (evidenceReadinessScore < 60) {
-  overallScore = Math.min(overallScore, 69);
+  overallScore = Math.min(overallScore, 55);
 } else if (evidenceReadinessScore < 80) {
+  overallScore = Math.min(overallScore, 84);
+} else if (evidenceReadinessScore < 90) {
   overallScore = Math.min(overallScore, 89);
 }
 
@@ -1013,6 +1072,7 @@ let auditStatus: AuditResponse["auditStatus"];
 if (
   evidenceReadinessScore < 60 ||
   hasCriticalFinding ||
+  hasMissingRequiredSection ||
   documentationAlignmentScore < 75
 ) {
   auditStatus = "Not Ready for Review";
