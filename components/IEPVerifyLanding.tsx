@@ -17,6 +17,7 @@ export default function IEPVerifyLanding() {
   <Link href="/how-it-works">How It Works</Link>
   <Link href="/texas">Texas Framework</Link>
   <a href="#faq">FAQs</a>
+  <Link href="/request-demo">Request a Demo</Link>
 
   <Link href="/login" className="loginButton">
     Log In
@@ -44,16 +45,16 @@ export default function IEPVerifyLanding() {
               know what needs attention before final review.
             </p>
 
-            <div className="heroButtons">
-              <Link href="/login" className="primaryButton">
-                Log In to IEP Verify
-                <span>→</span>
-              </Link>
+<div className="heroButtons">
+  <Link href="/login" className="primaryButton">
+    Log In to IEP Verify
+    <span>→</span>
+  </Link>
 
-<Link href="/how-it-works" className="secondaryButton">
-  See How It Works
-</Link>
-            </div>
+  <Link href="/request-demo" className="secondaryButton">
+    Request a Demo
+  </Link>
+</div>
 
             <p className="secureNote">
               Secure, password-free sign-in.
@@ -333,11 +334,12 @@ export default function IEPVerifyLanding() {
       </p>
     </div>
 
-    <div className="footerLinks">
-      <Link href="/privacy">Privacy Policy</Link>
-      <Link href="/terms">Terms</Link>
-      <Link href="/login">Log In</Link>
-    </div>
+<div className="footerLinks">
+  <Link href="/request-demo">Request a Demo</Link>
+  <Link href="/privacy">Privacy Policy</Link>
+  <Link href="/terms">Terms</Link>
+  <Link href="/login">Log In</Link>
+</div>
 
     <div className="footerCopyright">
       © {new Date().getFullYear()} IEP Verify
