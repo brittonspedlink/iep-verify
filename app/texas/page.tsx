@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export default function TexasFrameworkPage() {
   return (
     <main className="texasPage">
+      <GoogleAnalytics />
       <header className="texasNav">
         <div className="texasNavInner">
           <Link href="/" className="brand">

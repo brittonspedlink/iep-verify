@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 type Step = {
   number: string;
@@ -346,6 +347,7 @@ function Screenshot({
 export default function HowItWorksPage() {
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-[#132f53]">
+      <GoogleAnalytics />
       {/* HEADER */}
       <header className="border-b border-[#dbe4ef] bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">

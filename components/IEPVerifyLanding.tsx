@@ -1,8 +1,10 @@
 import Link from "next/link";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export default function IEPVerifyLanding() {
-  return (
-    <main className="landing">
+return (
+  <main className="landing">
+    <GoogleAnalytics />
       <header className="nav">
         <div className="navInner">
           <Link href="/" className="brand">

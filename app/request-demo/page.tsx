@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 type FormState = {
   name: string;
@@ -72,6 +73,7 @@ export default function RequestDemoPage() {
 
   return (
     <main className="page">
+        <GoogleAnalytics />
       <header className="nav">
         <div className="navInner">
           <Link href="/" className="brand">
