@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "IEP Verify",
-  description: "Independent IEP Quality Review",
+  title: "IEP Verify | Texas IEP Documentation Review",
+  description:
+    "Review IEP documentation against available evidence, identify material gaps, and evaluate alignment across key IEP sections.",
 };
 
 export default function RootLayout({
