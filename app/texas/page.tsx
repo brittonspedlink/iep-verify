@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+
+export const metadata: Metadata = {
+  title: "Texas IEP Review Framework | IEP Verify",
+  description:
+    "Explore IEP Verify's Texas-focused framework for reviewing IEP documentation, evidence readiness, alignment, material gaps, and conflicts.",
+};
 
 export default function TexasFrameworkPage() {
   return (

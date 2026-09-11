@@ -1,8 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+
+export const metadata: Metadata = {
+  title: "How IEP Verify Works | Evidence-Based IEP Review",
+  description:
+    "See how IEP Verify reviews IEP documentation against available evidence, identifies gaps, and evaluates alignment across key IEP sections.",
+};
 
 type Step = {
   number: string;
