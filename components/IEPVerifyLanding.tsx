@@ -920,13 +920,18 @@ return (
 
 .valueGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .valueCard {
+  min-width: 0;
+  padding: 30px 26px 32px;
   text-align: center;
-  padding: 6px 18px 0;
+  border: 1px solid #dce5ef;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(25, 55, 88, 0.06);
 }
 
 .valueIcon {
@@ -1149,6 +1154,19 @@ return (
   }
 }
 
+@media (max-width: 900px) {
+  .valueGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .valueCard:last-child {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 520px;
+    justify-self: center;
+  }
+}
+
 @media (max-width: 650px) {
   .navInner {
     height: 72px;
@@ -1170,6 +1188,28 @@ return (
   .loginButton {
     padding: 10px 16px;
   }
+
+.valueSectionInner {
+  padding: 62px 20px 68px;
+}
+
+.valueGrid {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.valueCard:last-child {
+  grid-column: auto;
+  max-width: none;
+}
+
+.valueCard {
+  padding: 28px 24px 30px;
+}
+
+.valueHeading {
+  margin-bottom: 32px;
+}
 
   .heroInner {
     padding: 64px 24px 72px;
