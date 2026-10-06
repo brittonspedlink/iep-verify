@@ -13,9 +13,39 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://iepverify.com"),
+
   title: "IEP Verify | Texas IEP Documentation Review",
+
   description:
     "Review IEP documentation against available evidence, identify material gaps, and evaluate alignment across key IEP sections.",
+
+  alternates: {
+    canonical: "https://iepverify.com",
+  },
+
+  openGraph: {
+    title: "IEP Verify | Independent IEP Documentation Review",
+    description:
+      "Evidence-based review, documentation alignment, and clearer next steps.",
+    url: "https://iepverify.com",
+    siteName: "IEP Verify",
+    type: "website",
+    images: [
+      {
+        url: "/iep-verify-og.png",
+        alt: "IEP Verify independent IEP documentation review",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "IEP Verify | Independent IEP Documentation Review",
+    description:
+      "Evidence-based review, documentation alignment, and clearer next steps.",
+    images: ["/iep-verify-og.png"],
+  },
 };
 
 export default function RootLayout({
